@@ -1,3 +1,10 @@
+base
+./
+├───Log
+├───main.exe
+├───config.ini
+├───log4rs.toml
+
 pub enum DebouncedEvent {
     /// `NoticeWrite` is emitted immediately after the first write event for the path.
     ///
@@ -52,3 +59,42 @@ pub enum DebouncedEvent {
     ///  This event may contain a path for which the error was detected.
     Error(Error, Option<PathBuf>),
 }
+
+
+
+// ++++++++++++++++++++++++++++++++++++++++++++++ openfiles
+
+INFO: The system global flag 'maintain objects list' needs
+      to be enabled to see local opened files.
+      See Openfiles /? for more information.
+
+
+Files opened remotely via local share points:
+---------------------------------------------
+
+ID       Accessed By          Type       Open File (Path\executable)
+======== ==================== ========== ====================================
+735      GUEST                Windows    D:\3200\
+850      GUEST                Windows    D:\3200\3200 ver
+// ++++++++++++++++++++++++++++++++++++++++++++++ openfiles 
+
+INFO: The system global flag 'maintain objects list' needs
+      to be enabled to see local opened files.
+      See Openfiles /? for more information.
+
+
+Files opened remotely via local share points:
+---------------------------------------------
+
+INFO: No shared open files found.
+
+// ++++++++++++++++++++++++++++++++++++++++++++++ session started
+
+Computer               User name            Client Type       Opens Idle time
+
+-------------------------------------------------------------------------------
+\\172.16.0.xxx         GUEST                                      2 00:00:37
+The command completed successfully.
+// ++++++++++++++++++++++++++++++++++++++++++++++ session started
+There are no entries in the list.
+// ++++++++++++++++++++++++++++++++++++++++++++++
