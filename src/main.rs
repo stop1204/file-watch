@@ -14,6 +14,11 @@ use crate::session::trace_msg;
 fn main() {
     log4rs::init_file("log4rs.yml", Default::default()).unwrap();
     info!("Initialize...");
+    /* trace_msg("debug".to_string());
+    log::trace!("initialize done");
+    log::debug!("debug");
+    log::warn!("debug");
+    error!("error");*/
     // trace_msg("Tracing...".to_string());
     let cfg = match std::fs::read_to_string("config.ini") {
         Ok(s) => s,

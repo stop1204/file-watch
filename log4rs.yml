@@ -4,14 +4,14 @@ appenders:
   stdout:
     kind: console
     encoder:
-     pattern: "{h([{d(%Y-%m-%d %H:%M:%S)} | {l} ])} {m}{n}"
+     pattern: "{h([{d(%Y-%m-%d %H:%M:%S)} | {l:>5} ])} {m}{n}"
 
   # An appender named "file" that writes to a file with a custom pattern encoder
   file:
     kind: rolling_file
-    path: "log/Event.log"
+    path: "log/event.log"
     encoder:
-      pattern: "{h([{d(%Y-%m-%d %H:%M:%S)} | {l} ])} {m}{n}"
+      pattern: "{h([{d(%Y-%m-%d %H:%M:%S)} | {l:>5} ])} {m}{n}"
     policy:
       kind: compound 
       trigger: 
@@ -20,16 +20,16 @@ appenders:
       roller: 
         
         kind: fixed_window
-        pattern: "log/log_{}.log" 
+        pattern: "log/event_{}.log" 
         base: 1 
-        count: 100
+        count: 50
         
         
   session:
       kind: rolling_file
       path: "log/session.log"
       encoder:
-        pattern: "{h([{d(%Y-%m-%d %H:%M:%S)} | {l} ])} {m}{n}"
+        pattern: "{h([{d(%Y-%m-%d %H:%M:%S)} | {l:>5} ])} {m}{n}"
       policy:
         kind: compound 
         trigger: 
@@ -38,12 +38,13 @@ appenders:
         roller: 
           
           kind: fixed_window
-          pattern: "log/log_{}.log" 
+          pattern: "log/session_{}.log" 
           base: 1 
-          count: 100
+          count: 50
 # Set the default logging level to "warn" and attach the "stdout" appender to the root
+# trace > debug > info > warn > error
 root:
-  level: INFO
+  level: trace
   appenders:
     - file
     - stdout
