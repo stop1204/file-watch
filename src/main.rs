@@ -2,8 +2,9 @@
 use hotwatch::{Event, Hotwatch};
 use log::{error, info, warn};
 use regex::Regex;
-use std::os::windows::process::CommandExt;
-use std::process::Command;
+use std::env;
+use std::os::windows::process::{CommandExt};
+use std::process::{Command};
 use std::{thread::sleep, time::Duration};
 
 mod session;
@@ -18,14 +19,17 @@ const CREATE_NO_WINDOW: u32 = 0x08000000;
 ///
 /// 基本文件    file: main.exe,config.ini,log4rs / Folder: Log
 fn main() {
-    log4rs::init_file("log4rs.yml", Default::default()).unwrap();
-    info!("Initialize...");
-    /* trace_msg("debug".to_string());
-    log::trace!("initialize done");
-    log::debug!("debug");
-    log::warn!("debug");
-    error!("error");*/
-    // trace_msg("Tracing...".to_string());
+    {
+        log4rs::init_file("log4rs.yml", Default::default()).unwrap();
+        info!("Initialize...");
+        /* trace_msg("debug".to_string());
+        log::trace!("initialize done");
+        log::debug!("debug");
+        log::warn!("debug");
+        error!("error");*/
+        // trace_msg("Tracing...".to_string());
+        repeatedly_execute();
+    }
 
     let cfg = match std::fs::read_to_string("config.ini") {
         Ok(s) => s,
@@ -134,4 +138,25 @@ fn watch_file(s: &str) -> Result<Hotwatch, String> {
         })
         .expect("failed to watch file!");
     Ok(hotwatch)
+}
+
+// aoto exit when main.exe is run repeatedly
+fn repeatedly_execute() {
+    // deteact if XXX.exe is running
+    let process_name = env::current_exe().unwrap();
+    let process_name = process_name.file_name().unwrap().to_str().unwrap();
+    let mut cmd = Command::new("tasklist");
+    cmd.arg("/fi").arg(format!("imagename eq {}", process_name));
+    let output = cmd.output().expect("failed to execute process");
+    let output = String::from_utf8(output.stdout).unwrap();
+    let mut count = 0;
+    for line in output.lines() {
+        if line.contains(process_name) {
+            count += 1;
+        }
+    }
+    if count > 1 {
+        info!("{} is running repeatedly, exit!", process_name);
+        std::process::exit(0);
+    }
 }
