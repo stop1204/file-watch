@@ -47,7 +47,7 @@ fn main() {
     });
 
     // replace whitespace
-    let re = Regex::new(r"\ {2,}").unwrap();
+    let re = Regex::new(r"[ ]{2,}").unwrap();
     loop {
         let cmd1 = Command::new("net")
             .creation_flags(CREATE_NO_WINDOW)
