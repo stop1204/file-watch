@@ -3,8 +3,8 @@ use hotwatch::{Event, Hotwatch};
 use log::{error, info, warn};
 use regex::Regex;
 use std::env;
-use std::os::windows::process::{CommandExt};
-use std::process::{Command};
+use std::os::windows::process::CommandExt;
+use std::process::Command;
 use std::{thread::sleep, time::Duration};
 
 mod session;
@@ -17,7 +17,8 @@ const CREATE_NO_WINDOW: u32 = 0x08000000;
 ///
 /// https://blog.csdn.net/luchengtao11/article/details/124076575
 ///
-/// 基本文件    file: main.exe,config.ini,log4rs / Folder: Log
+/// base file: main.exe,config.ini,log4rs / Folder: Log
+/// file-watcher is a tool to watch file changes
 fn main() {
     {
         log4rs::init_file("log4rs.yml", Default::default()).unwrap();
@@ -58,7 +59,7 @@ fn main() {
                 if v.len() > 10 && !v.contains("no entries") {
                     trace_msg(format!(
                         "net session:\n{}",
-                        re.replace(
+                        re.replace_all (
                             &v[v.rfind("-\r\n").unwrap_or(0) + 5..v.rfind("\r\nThe").unwrap_or(0)],
                             "\t"
                         )
@@ -82,7 +83,7 @@ fn main() {
                 if v.len() > 10 && !v.contains("No shared") {
                     trace_msg(format!(
                         "openfiles:\n{}",
-                        re.replace(&v[v.rfind("=\r\n").unwrap_or(0) + 5..], "\t")
+                        re.replace_all(&v[v.rfind("=\r\n").unwrap_or(0) + 5..], "\t")
                     ))
                 }
             }
