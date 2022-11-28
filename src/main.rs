@@ -52,13 +52,13 @@ fn main() {
         match String::from_utf8(cmd1.stdout) {
             Ok(v) => {
                 if v.len() > 10 && !v.contains("no entries") {
-                    info!(
+                    trace_msg(format!(
                         "net session:\n{}",
                         re.replace(
                             &v[v.rfind("-\r\n").unwrap_or(0) + 5..v.rfind("\r\nThe").unwrap_or(0)],
                             "\t"
                         )
-                    );
+                    ));
                 }
             }
             Err(e) => {
