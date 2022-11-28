@@ -1,6 +1,7 @@
-// #! [windows_subsystem = "windows"]
+#! [windows_subsystem = "windows"]
 use hotwatch::{Event, Hotwatch};
 use log::{error, info, warn};
+use regex::Regex;
 use std::process::Command;
 use std::{thread::sleep, time::Duration};
 
@@ -34,6 +35,9 @@ fn main() {
         Err(e) => error!("watching failed: {},{:?}", path, e),
     });
 
+    // replace whitespace
+    let re = Regex::new(r"\s{2,}").unwrap();
+
     loop {
         let cmd1 = Command::new("net")
             .arg("session")
@@ -44,8 +48,10 @@ fn main() {
                 if v.len() > 10 && !v.contains("no entries") {
                     info!(
                         "net session:\n{}",
-                        &v[v.rfind("-\r\n").unwrap_or(0) + 5..v.rfind("\r\nThe").unwrap_or(0)]
-                            .replacen("   ", "  ", 15)
+                        re.replace(
+                            &v[v.rfind("-\r\n").unwrap_or(0) + 5..v.rfind("\r\nThe").unwrap_or(0)],
+                            "\t"
+                        )
                     );
                 }
             }
@@ -65,7 +71,7 @@ fn main() {
                 if v.len() > 10 && !v.contains("No shared") {
                     trace_msg(format!(
                         "openfiles:\n{}",
-                        &v[v.rfind("=\r\n").unwrap_or(0) + 5..].replacen("   ", "  ", 10)
+                        re.replace(&v[v.rfind("=\r\n").unwrap_or(0) + 5..], "\t")
                     ))
                 }
             }
@@ -78,6 +84,10 @@ fn main() {
 }
 
 fn watch_file(s: &str) -> Result<Hotwatch, String> {
+    if !std::path::Path::new(s).exists(){
+        return Err("Invalid Path".to_string());
+    }
+        
     let mut hotwatch = Hotwatch::new().expect("hotwatch failed to initialize!");
     hotwatch
         .watch(s, |event: Event| match event {
@@ -107,11 +117,11 @@ fn watch_file(s: &str) -> Result<Hotwatch, String> {
             }
             Event::Rescan => info!("Rescan"),
             Event::NoticeWrite(path) => info!(
-                "[NoticeWrite] File {:?}",
+                "[NoticeWrite] {:?}",
                 path.file_name().unwrap_or(path.as_os_str())
             ),
             Event::NoticeRemove(path) => info!(
-                "[NoticeRemove] File {:?}",
+                "[NoticeRemove] {:?}",
                 path.file_name().unwrap_or(path.as_os_str())
             ),
         })
