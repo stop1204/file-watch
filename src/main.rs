@@ -1,12 +1,17 @@
-#! [windows_subsystem = "windows"]
+#![windows_subsystem = "windows"]
 use hotwatch::{Event, Hotwatch};
 use log::{error, info, warn};
 use regex::Regex;
+use std::os::windows::process::CommandExt;
 use std::process::Command;
 use std::{thread::sleep, time::Duration};
 
 mod session;
 use crate::session::trace_msg;
+
+/// CreateProcess
+const CREATE_NO_WINDOW: u32 = 0x08000000;
+
 /// https://github.com/francesca64/hotwatch
 ///
 /// https://blog.csdn.net/luchengtao11/article/details/124076575
@@ -21,6 +26,7 @@ fn main() {
     log::warn!("debug");
     error!("error");*/
     // trace_msg("Tracing...".to_string());
+
     let cfg = match std::fs::read_to_string("config.ini") {
         Ok(s) => s,
         Err(e) => {
@@ -37,9 +43,9 @@ fn main() {
 
     // replace whitespace
     let re = Regex::new(r"\s{2,}").unwrap();
-
     loop {
         let cmd1 = Command::new("net")
+            .creation_flags(CREATE_NO_WINDOW)
             .arg("session")
             .output()
             .expect("process failed to execute");
@@ -60,6 +66,7 @@ fn main() {
             }
         }
         let cmd2 = Command::new("openfiles")
+            .creation_flags(CREATE_NO_WINDOW)
             .output()
             .expect("process failed to execute");
 
@@ -84,10 +91,10 @@ fn main() {
 }
 
 fn watch_file(s: &str) -> Result<Hotwatch, String> {
-    if !std::path::Path::new(s).exists(){
+    if !std::path::Path::new(s).exists() {
         return Err("Invalid Path".to_string());
     }
-        
+
     let mut hotwatch = Hotwatch::new().expect("hotwatch failed to initialize!");
     hotwatch
         .watch(s, |event: Event| match event {
