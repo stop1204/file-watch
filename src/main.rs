@@ -3,8 +3,9 @@ use hotwatch::{Event, Hotwatch};
 use log::{error, info, warn};
 use regex::Regex;
 use std::env;
+use std::io::{Read, Write};
 use std::os::windows::process::CommandExt;
-use std::process::Command;
+use std::process::{Command, Stdio};
 use std::{thread::sleep, time::Duration};
 
 mod session;
@@ -19,6 +20,7 @@ const CREATE_NO_WINDOW: u32 = 0x08000000;
 ///
 /// base file: main.exe,config.ini,log4rs / Folder: Log
 /// file-watcher is a tool to watch file changes
+#[allow(unused_variables)]
 fn main() {
     {
         log4rs::init_file("log4rs.yml", Default::default()).unwrap();
@@ -47,51 +49,19 @@ fn main() {
     });
 
     // replace whitespace
+
     let re = Regex::new(r"[ ]{2,}").unwrap();
     loop {
-        let cmd1 = Command::new("net")
-            .creation_flags(CREATE_NO_WINDOW)
-            .arg("session")
-            .output()
-            .expect("process failed to execute");
-        match String::from_utf8(cmd1.stdout) {
-            Ok(v) => {
-                if v.len() > 10 && !v.contains("no entries") {
-                    trace_msg(format!(
-                        "net session:\n{}",
-                        re.replace_all (
-                            &v[v.rfind("-\r\n").unwrap_or(0) + 5..v.rfind("\r\nThe").unwrap_or(0)],
-                            "\t"
-                        )
-                    ));
-                }
-            }
-            Err(e) => {
-                trace_msg(format!("net session: {}", e));
-            }
-        }
-        let cmd2 = Command::new("openfiles")
-            .creation_flags(CREATE_NO_WINDOW)
-            .output()
-            .expect("process failed to execute");
+        // process_cmd(re.clone());
+        powershell();
 
-        // chinese charactor
-        // String::from_utf8_lossy(format!("{:?}",cmd2).as_bytes())
+        if cfg!(debug_assertions) {
+            sleep(Duration::from_secs(1));
+            
+        }else{
 
-        match String::from_utf8(cmd2.stdout) {
-            Ok(v) => {
-                if v.len() > 10 && !v.contains("No shared") {
-                    trace_msg(format!(
-                        "openfiles:\n{}",
-                        re.replace_all(&v[v.rfind("=\r\n").unwrap_or(0) + 5..], "\t")
-                    ))
-                }
-            }
-            Err(e) => {
-                trace_msg(format!("openfiles: {}", e));
-            }
+            sleep(Duration::from_secs(10));
         }
-        sleep(Duration::from_secs(10));
     }
 }
 
@@ -159,5 +129,79 @@ fn repeatedly_execute() {
     if count > 1 {
         info!("{} is running repeatedly, exit!", process_name);
         std::process::exit(0);
+    }
+}
+fn powershell() {
+    let pangram = r#"Get-SmbOpenFile|select ClientUserName,ClientComputerName,Path"#;
+
+    let process = match Command::new("powershell").creation_flags(CREATE_NO_WINDOW)
+        .stdin(Stdio::piped())
+        .stdout(Stdio::piped())
+        .spawn()
+    {
+        Err(e) => panic!("couldn't spawn PS: {e}"),
+        Ok(process) => process,
+    };
+
+    if let Err(e) = process.stdin.unwrap().write_all(pangram.as_bytes()) {
+        panic!("couldn't write to PS stdin: {e}")
+    }
+
+    let mut s = String::new();
+    if let Err(e) = process.stdout.unwrap().read_to_string(&mut s) {
+        panic!("couldn't read PS stdout: {e}")
+    } else {
+        if s.lines().count() < 3 {
+            panic!("PS output too short")
+        } else {
+            s.lines()
+                 .skip(6).take_while(|line| !line.is_empty() && !line.starts_with("PS"))
+                .for_each(|line| trace_msg(line.to_owned()));
+        }
+    }
+}
+#[allow(dead_code)]
+fn process_cmd(re: Regex) {
+    let cmd1 = Command::new("net")
+        .creation_flags(CREATE_NO_WINDOW)
+        .arg("session")
+        .output()
+        .expect("process failed to execute");
+    match String::from_utf8(cmd1.stdout) {
+        Ok(v) => {
+            if v.len() > 10 && !v.contains("no entries") {
+                trace_msg(format!(
+                    "net session:\n{}",
+                    re.replace_all(
+                        &v[v.rfind("-\r\n").unwrap_or(0) + 5..v.rfind("\r\nThe").unwrap_or(0)],
+                        "\t"
+                    )
+                ));
+            }
+        }
+        Err(e) => {
+            trace_msg(format!("net session: {}", e));
+        }
+    }
+    let cmd2 = Command::new("openfiles")
+        .creation_flags(CREATE_NO_WINDOW)
+        .output()
+        .expect("process failed to execute");
+
+    // chinese charactor
+    // String::from_utf8_lossy(format!("{:?}",cmd2).as_bytes())
+
+    match String::from_utf8(cmd2.stdout) {
+        Ok(v) => {
+            if v.len() > 10 && !v.contains("No shared") {
+                trace_msg(format!(
+                    "openfiles:\n{}",
+                    re.replace_all(&v[v.rfind("=\r\n").unwrap_or(0) + 5..], "\t")
+                ))
+            }
+        }
+        Err(e) => {
+            trace_msg(format!("openfiles: {}", e));
+        }
     }
 }
