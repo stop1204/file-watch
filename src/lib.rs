@@ -12,7 +12,7 @@ mod test {
     #[test]
     fn test_pipe() {
         
-        let pangram = r#"Get-SmbOpenFile|select ClientUserName,ClientComputerName,Path"#;
+        let pangram = r#"Get-SmbOpenFile|select ClientComputerName,Path"#;
 
         let process = match Command::new("powershell")
             .stdin(Stdio::piped())
