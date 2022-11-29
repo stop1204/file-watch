@@ -132,7 +132,7 @@ fn repeatedly_execute() {
     }
 }
 fn powershell() {
-    let pangram = r#"Get-SmbOpenFile|select ClientUserName,ClientComputerName,Path"#;
+    let pangram = r#"Get-SmbOpenFile|select ClientComputerName,Path"#;
 
     let process = match Command::new("powershell").creation_flags(CREATE_NO_WINDOW)
         .stdin(Stdio::piped())
