@@ -234,6 +234,8 @@ fn process_cmd(re: Regex) {
 
 /// need to be run as admin
 /// need: update file name same as excutable file name
+/// update file path: ./update/file-watch.exe
+/// just put update file in the 'update' folder as excutable file
 fn update(update_file: &PathBuf, tmp_file: &PathBuf) -> Result<(), Box<dyn ::std::error::Error>> {
     if !update_file.exists() {
         return Ok(());
