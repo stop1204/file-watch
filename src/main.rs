@@ -1,4 +1,4 @@
-// #![windows_subsystem = "windows"]
+#![windows_subsystem = "windows"]
 use hotwatch::{Event, Hotwatch};
 use log::{error, info, warn};
 use regex::Regex;
