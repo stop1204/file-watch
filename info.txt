@@ -98,3 +98,5 @@ The command completed successfully.
 // ++++++++++++++++++++++++++++++++++++++++++++++ session started
 There are no entries in the list.
 // ++++++++++++++++++++++++++++++++++++++++++++++
+
+cargo doc --no-deps --open --document-private-items
