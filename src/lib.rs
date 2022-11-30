@@ -11,15 +11,14 @@ use std::{
     os::windows::process::CommandExt,
     path::{Path, PathBuf},
     process::{Command, Stdio},
-   
 };
 extern crate self_update;
 
 mod session;
 use crate::session::trace_msg;
+
+/// CreateProcess parameter
 const CREATE_NO_WINDOW: u32 = 0x08000000;
-
-
 
 #[cfg(test)]
 mod test {
@@ -63,7 +62,7 @@ mod test {
         }
     }
 
-    /// runas admin 
+    /// runas admin
     #[test]
     fn runas() {
         let pangram = r#"start file-watch.exe"#;
@@ -100,7 +99,6 @@ mod test {
     }
 }
 
-
 //
 //
 //
@@ -127,7 +125,6 @@ mod test {
 //
 //
 //
-
 
 /// executeable file -> [process_name]
 ///
@@ -156,7 +153,6 @@ pub fn get_update_file_name() -> (String, PathBuf, PathBuf) {
     }
     (process_name, path_update_file, path_tmp_file)
 }
-
 
 /// configuration file: [config.ini] , Can be files or directories
 pub fn watch_file(s: &str) -> Result<Hotwatch, String> {
@@ -207,7 +203,6 @@ pub fn watch_file(s: &str) -> Result<Hotwatch, String> {
 
 /// Automatically close old programs, for update
 pub fn repeatedly_execute(process_name: String) {
-    
     let process_id_self = std::process::id();
     let re = Regex::new(r"[ ]{2,}\d{2,} ").unwrap();
     let mut cmd = Command::new("tasklist");
