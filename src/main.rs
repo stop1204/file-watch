@@ -1,18 +1,11 @@
 #![windows_subsystem = "windows"]
 
-use hotwatch::{ Hotwatch};
+use file_watch::*;
+use hotwatch::Hotwatch;
 #[allow(unused_imports)]
 use log::{debug, error, info, warn};
 use regex::Regex;
-use std::{
-  
-    path::{ PathBuf},
-    
-    thread::sleep,
-    time::Duration,
-};
-use file_watch::*;
-
+use std::{path::PathBuf, thread::sleep, time::Duration};
 
 /// https://github.com/francesca64/hotwatch
 ///
@@ -27,8 +20,8 @@ fn main() {
     {
         log4rs::init_file("log4rs.yml", Default::default()).unwrap();
         info!("Initialize...");
- 
-      /*   trace_msg("debug".to_string());
+
+        /*   trace_msg("debug".to_string());
         log::trace!("initialize done");
         log::debug!("debug");
         log::warn!("debug");
@@ -66,4 +59,3 @@ fn main() {
         }
     }
 }
-
