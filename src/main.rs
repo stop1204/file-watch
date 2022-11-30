@@ -1,14 +1,17 @@
-#![windows_subsystem = "windows"]
+// #![windows_subsystem = "windows"]
 use hotwatch::{Event, Hotwatch};
-use log::{error, info, warn};
+#[allow(unused_imports)]
+use log::{debug, error, info, warn};
 use regex::Regex;
-use std::io::{Read, Write};
-use std::os::windows::process::CommandExt;
-use std::path::{Path, PathBuf};
-use std::process::{Command, Stdio};
-use std::{env, process};
-use std::{thread::sleep, time::Duration};
-#[macro_use]
+use std::{
+    env,
+    io::{Read, Write},
+    os::windows::process::CommandExt,
+    path::{Path, PathBuf},
+    process::{Command, Stdio},
+    thread::sleep,
+    time::Duration,
+};
 extern crate self_update;
 
 mod session;
@@ -57,7 +60,7 @@ fn main() {
     let re = Regex::new(r"[ ]{2,}").unwrap();
     loop {
         // process_cmd(re.clone());
-        powershell();
+        powershell(r#"Get-SmbOpenFile|select ClientComputerName,Path"#);
         update(&path_update_file, &path_tmp_file).unwrap();
 
         if cfg!(debug_assertions) {
@@ -140,23 +143,46 @@ fn watch_file(s: &str) -> Result<Hotwatch, String> {
 // aoto exit when main.exe is run repeatedly
 fn repeatedly_execute(process_name: String) {
     // deteact if XXX.exe is running
+    let process_id_self = std::process::id();
+    let re = Regex::new(r"[ ]{2,}\d{2,} ").unwrap();
     let mut cmd = Command::new("tasklist");
     cmd.arg("/fi").arg(format!("imagename eq {}", process_name));
     let output = cmd.output().expect("failed to execute process");
     let output = String::from_utf8(output.stdout).unwrap();
-    let mut count = 0;
+    // let mut count = 0;
     for line in output.lines() {
         if line.contains(process_name.as_str()) {
-            count += 1;
+            if let Ok(v) = re
+                .captures(line)
+                .unwrap()
+                .get(0)
+                .unwrap()
+                .as_str()
+                .trim()
+                .parse::<u32>()
+            {
+                if v != process_id_self {
+                    if let Err(e) = Command::new("taskkill")
+                        .arg("/pid")
+                        .arg(&v.to_string()[..])
+                        .arg("/f")
+                        .spawn()
+                    {
+                        error!("kill process failed: {:?}", e)
+                    }
+                }
+            }
+            // count += 1;
         }
     }
-    if count > 1 {
+    /* if count > 1 {
         info!("{} is running repeatedly, exit!", process_name);
         std::process::exit(0);
-    }
+    } */
+    return;
 }
-fn powershell() {
-    let pangram = r#"Get-SmbOpenFile|select ClientComputerName,Path"#;
+fn powershell(pangram: &str) {
+    // let pangram = r#"Get-SmbOpenFile|select ClientComputerName,Path"#;
 
     let process = match Command::new("powershell")
         .creation_flags(CREATE_NO_WINDOW)
@@ -186,6 +212,50 @@ fn powershell() {
         }
     }
 }
+
+/// need to be run as admin
+/// need: update file name same as excutable file name
+/// update file path: ./update/file-watch.exe
+/// just put update file in the 'update' folder as excutable file
+fn update(update_file: &PathBuf, tmp_file: &PathBuf) -> Result<(), Box<dyn ::std::error::Error>> {
+    if !update_file.exists() {
+        return Ok(());
+    }
+    info!("Update file");
+    self_update::Move::from_source(&update_file)
+        .replace_using_temp(&tmp_file)
+        .to_dest(&::std::env::current_exe()?)?;
+    // here run app will kill the old app in repeatedly_execute()
+    powershell(r#"start file-watch.exe"#);
+    Ok(())
+}
+
+//
+//
+//
+//
+//
+//
+//
+//
+//
+//
+//
+//
+//
+//
+//
+//
+//
+//
+//
+//
+//
+//
+//
+//
+//
+//
 #[allow(dead_code)]
 fn process_cmd(re: Regex) {
     let cmd1 = Command::new("net")
@@ -230,19 +300,4 @@ fn process_cmd(re: Regex) {
             trace_msg(format!("openfiles: {}", e));
         }
     }
-}
-
-/// need to be run as admin
-/// need: update file name same as excutable file name
-/// update file path: ./update/file-watch.exe
-/// just put update file in the 'update' folder as excutable file
-fn update(update_file: &PathBuf, tmp_file: &PathBuf) -> Result<(), Box<dyn ::std::error::Error>> {
-    if !update_file.exists() {
-        return Ok(());
-    }
-    info!("Update file");
-    self_update::Move::from_source(&update_file)
-        .replace_using_temp(&tmp_file)
-        .to_dest(&::std::env::current_exe()?)?;
-    Ok(())
 }
