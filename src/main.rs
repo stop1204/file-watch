@@ -1,12 +1,15 @@
-#![windows_subsystem = "windows"]
+// #![windows_subsystem = "windows"]
 use hotwatch::{Event, Hotwatch};
 use log::{error, info, warn};
 use regex::Regex;
-use std::env;
 use std::io::{Read, Write};
 use std::os::windows::process::CommandExt;
+use std::path::{Path, PathBuf};
 use std::process::{Command, Stdio};
+use std::{env, process};
 use std::{thread::sleep, time::Duration};
+#[macro_use]
+extern crate self_update;
 
 mod session;
 use crate::session::trace_msg;
@@ -22,6 +25,7 @@ const CREATE_NO_WINDOW: u32 = 0x08000000;
 /// file-watcher is a tool to watch file changes
 #[allow(unused_variables)]
 fn main() {
+    let (process_name, path_update_file, path_tmp_file): (String, PathBuf, PathBuf) = fun_name();
     {
         log4rs::init_file("log4rs.yml", Default::default()).unwrap();
         info!("Initialize...");
@@ -31,7 +35,7 @@ fn main() {
         log::warn!("debug");
         error!("error");*/
         // trace_msg("Tracing...".to_string());
-        repeatedly_execute();
+        repeatedly_execute(process_name);
     }
 
     let cfg = match std::fs::read_to_string("config.ini") {
@@ -54,19 +58,41 @@ fn main() {
     loop {
         // process_cmd(re.clone());
         powershell();
+        update(&path_update_file, &path_tmp_file).unwrap();
 
         if cfg!(debug_assertions) {
             sleep(Duration::from_secs(1));
-            
-        }else{
-
+        } else {
             sleep(Duration::from_secs(10));
         }
     }
 }
 
+fn fun_name() -> (String, PathBuf, PathBuf) {
+    let process_name = env::current_exe().unwrap();
+    let process_name = format!("{}", process_name.file_name().unwrap().to_str().unwrap());
+    let current_dir = env::current_dir().unwrap();
+    let path_update_file = "update";
+    let path_tmp_file = "tmp";
+    if !Path::new(path_update_file).exists() {
+        std::fs::create_dir(path_update_file).unwrap();
+    }
+    if !Path::new(path_tmp_file).exists() {
+        std::fs::create_dir(path_tmp_file).unwrap();
+    }
+    let path_update_file = current_dir.join(path_update_file).join(&process_name);
+    let path_tmp_file = current_dir.join(path_tmp_file).join(&process_name);
+    if cfg!(debug_assertions) {
+        println!("process_name: {:?}", process_name);
+        println!("current_dir: {:?}", current_dir);
+        println!("path_update_file: {:?}", path_update_file);
+        println!("path_tmp_file: {:?}", path_tmp_file);
+    }
+    (process_name, path_update_file, path_tmp_file)
+}
+
 fn watch_file(s: &str) -> Result<Hotwatch, String> {
-    if !std::path::Path::new(s).exists() {
+    if !Path::new(s).exists() {
         return Err("Invalid Path".to_string());
     }
 
@@ -112,17 +138,15 @@ fn watch_file(s: &str) -> Result<Hotwatch, String> {
 }
 
 // aoto exit when main.exe is run repeatedly
-fn repeatedly_execute() {
+fn repeatedly_execute(process_name: String) {
     // deteact if XXX.exe is running
-    let process_name = env::current_exe().unwrap();
-    let process_name = process_name.file_name().unwrap().to_str().unwrap();
     let mut cmd = Command::new("tasklist");
     cmd.arg("/fi").arg(format!("imagename eq {}", process_name));
     let output = cmd.output().expect("failed to execute process");
     let output = String::from_utf8(output.stdout).unwrap();
     let mut count = 0;
     for line in output.lines() {
-        if line.contains(process_name) {
+        if line.contains(process_name.as_str()) {
             count += 1;
         }
     }
@@ -134,7 +158,8 @@ fn repeatedly_execute() {
 fn powershell() {
     let pangram = r#"Get-SmbOpenFile|select ClientComputerName,Path"#;
 
-    let process = match Command::new("powershell").creation_flags(CREATE_NO_WINDOW)
+    let process = match Command::new("powershell")
+        .creation_flags(CREATE_NO_WINDOW)
         .stdin(Stdio::piped())
         .stdout(Stdio::piped())
         .spawn()
@@ -155,7 +180,8 @@ fn powershell() {
             panic!("PS output too short")
         } else {
             s.lines()
-                 .skip(6).take_while(|line| !line.is_empty() && !line.starts_with("PS"))
+                .skip(6)
+                .take_while(|line| !line.is_empty() && !line.starts_with("PS"))
                 .for_each(|line| trace_msg(line.to_owned()));
         }
     }
@@ -204,4 +230,17 @@ fn process_cmd(re: Regex) {
             trace_msg(format!("openfiles: {}", e));
         }
     }
+}
+
+/// need to be run as admin
+/// need: update file name same as excutable file name
+fn update(update_file: &PathBuf, tmp_file: &PathBuf) -> Result<(), Box<dyn ::std::error::Error>> {
+    if !update_file.exists() {
+        return Ok(());
+    }
+    info!("Update file");
+    self_update::Move::from_source(&update_file)
+        .replace_using_temp(&tmp_file)
+        .to_dest(&::std::env::current_exe()?)?;
+    Ok(())
 }
