@@ -1,4 +1,7 @@
-// #![windows_subsystem = "windows"]
+//! # created by Terry on 2022-11-25
+//!
+//! file-watcher is a tool to watch file changes
+#![windows_subsystem = "windows"]
 use hotwatch::{Event, Hotwatch};
 #[allow(unused_imports)]
 use log::{debug, error, info, warn};
@@ -17,18 +20,19 @@ extern crate self_update;
 mod session;
 use crate::session::trace_msg;
 
-/// CreateProcess
+/// CreateProcess parameter
 const CREATE_NO_WINDOW: u32 = 0x08000000;
 
 /// https://github.com/francesca64/hotwatch
 ///
 /// https://blog.csdn.net/luchengtao11/article/details/124076575
 ///
-/// base file: main.exe,config.ini,log4rs / Folder: Log
-/// file-watcher is a tool to watch file changes
+/// Basic required file: [main.exe],[config.ini],[log4rs]
+///
 #[allow(unused_variables)]
 fn main() {
-    let (process_name, path_update_file, path_tmp_file): (String, PathBuf, PathBuf) = fun_name();
+    let (process_name, path_update_file, path_tmp_file): (String, PathBuf, PathBuf) =
+        get_update_file_name();
     {
         log4rs::init_file("log4rs.yml", Default::default()).unwrap();
         info!("Initialize...");
@@ -71,7 +75,12 @@ fn main() {
     }
 }
 
-fn fun_name() -> (String, PathBuf, PathBuf) {
+/// executeable file -> [process_name]
+///
+/// new file -> [./update/filename.exe]
+///
+/// old file -> [./tmp/[filename.exe]
+fn get_update_file_name() -> (String, PathBuf, PathBuf) {
     let process_name = env::current_exe().unwrap();
     let process_name = format!("{}", process_name.file_name().unwrap().to_str().unwrap());
     let current_dir = env::current_dir().unwrap();
@@ -94,6 +103,7 @@ fn fun_name() -> (String, PathBuf, PathBuf) {
     (process_name, path_update_file, path_tmp_file)
 }
 
+/// configuration file: [config.ini] , Can be files or directories
 fn watch_file(s: &str) -> Result<Hotwatch, String> {
     if !Path::new(s).exists() {
         return Err("Invalid Path".to_string());
@@ -140,7 +150,7 @@ fn watch_file(s: &str) -> Result<Hotwatch, String> {
     Ok(hotwatch)
 }
 
-// aoto exit when main.exe is run repeatedly
+/// Automatically close old programs, for update
 fn repeatedly_execute(process_name: String) {
     // deteact if XXX.exe is running
     let process_id_self = std::process::id();
@@ -181,6 +191,8 @@ fn repeatedly_execute(process_name: String) {
     } */
     return;
 }
+
+/// CLI  
 fn powershell(pangram: &str) {
     // let pangram = r#"Get-SmbOpenFile|select ClientComputerName,Path"#;
 
@@ -213,9 +225,12 @@ fn powershell(pangram: &str) {
     }
 }
 
-/// need to be run as admin
-/// need: update file name same as excutable file name
-/// update file path: ./update/file-watch.exe
+/// auto restart, need to be run as admin
+///
+/// update file name same as executable file name
+///
+/// update file path: ./update/[file-watch.exe]
+///
 /// just put update file in the 'update' folder as excutable file
 fn update(update_file: &PathBuf, tmp_file: &PathBuf) -> Result<(), Box<dyn ::std::error::Error>> {
     if !update_file.exists() {
@@ -257,6 +272,7 @@ fn update(update_file: &PathBuf, tmp_file: &PathBuf) -> Result<(), Box<dyn ::std
 //
 //
 #[allow(dead_code)]
+/// Use [`powershell`] instead of cmd
 fn process_cmd(re: Regex) {
     let cmd1 = Command::new("net")
         .creation_flags(CREATE_NO_WINDOW)

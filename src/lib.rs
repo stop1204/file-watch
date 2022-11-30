@@ -7,6 +7,7 @@ mod test {
         process::{Command, Stdio},
     };
 
+    /// CLI pipe , example [tasklist | findstr "file-watch.exe"]
     #[test]
     fn test_pipe() {
         let pangram = r#"Get-SmbOpenFile|select ClientComputerName,Path"#;
@@ -40,7 +41,7 @@ mod test {
         }
     }
 
-    /// runas admin
+    /// runas admin 
     #[test]
     fn runas() {
         let pangram = r#"start file-watch.exe"#;
