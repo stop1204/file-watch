@@ -1,6 +1,6 @@
 #![windows_subsystem = "windows"]
 
-use file_watcher::*;
+use file_watch::*;
 use hotwatch::Hotwatch;
 #[allow(unused_imports)]
 use log::{debug, error, info, warn};

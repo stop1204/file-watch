@@ -17,7 +17,7 @@ use std::{
     process::{Command, Stdio},
 };
 extern crate self_update;
-use chrono::{ Datelike, FixedOffset, Utc};
+use chrono::{Datelike, FixedOffset, Utc};
 
 mod session;
 use crate::session::trace_msg;
@@ -416,12 +416,16 @@ pub fn receive_message() {
                 loop {
                     let mut buffer = [0; 1024];
                     match stream.read(&mut buffer) {
-                        Ok(_) => {
+                        Ok(bytes_read) => {
+
+                            if bytes_read>0 {
                             println!(
                                 "Received a message: {}",
-                                String::from_utf8_lossy(&buffer[..])
+                                String::from_utf8_lossy(&buffer[..bytes_read])
                             );
-                            process_message(&String::from_utf8_lossy(&buffer[..]));
+                            process_message(&String::from_utf8_lossy(&buffer[..bytes_read]));
+                            }
+                            
                         }
                         Err(e) => {
                             warn!("Failed to receive data: {}", e);
@@ -439,7 +443,7 @@ pub fn receive_message() {
 // message from receive_message by telnet
 fn process_message(s: &str) {
     let v: Vec<&str> = s.split_whitespace().collect();
-    if v.len() > 1 {
+    if v.len() >= 1 {
         match v[0] {
             /* "update" => {
                 if v[1] == "file-watch.exe" {
@@ -449,6 +453,7 @@ fn process_message(s: &str) {
             "crash" => {
                 // get crash log
                 get_system_log();
+                println!("get_system_log()");
             }
             _ => (),
         }
