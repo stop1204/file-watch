@@ -1,6 +1,6 @@
-// #![windows_subsystem = "windows"]
+#![windows_subsystem = "windows"]
 
-use file_watch::*;
+use file_watcher::*;
 use hotwatch::Hotwatch;
 #[allow(unused_imports)]
 use log::{debug, error, info, warn};
@@ -45,9 +45,8 @@ fn main() {
         Err(e) => error!("watching failed: {},{:?}", path, e),
     });
 
-    
     std::thread::spawn(move || {
-        recive_message();
+        receive_message();
     });
 
     // replace whitespace
@@ -65,4 +64,3 @@ fn main() {
         }
     }
 }
-

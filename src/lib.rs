@@ -1,20 +1,23 @@
 //! # created by Terry on 2022-11-25
 //!
 //! file-watcher is a tool to watch file changes
+use evtx::EvtxParser;
 use hotwatch::{Event, Hotwatch};
 #[allow(unused_imports)]
 use log::{debug, error, info, warn};
+use platform_dirs::UserDirs;
 use regex::Regex;
 use std::{
     env, fs,
     io::{Read, Write},
     net::TcpListener,
+    ops::Add,
     os::windows::process::CommandExt,
     path::{Path, PathBuf},
     process::{Command, Stdio},
 };
 extern crate self_update;
-use chrono::{FixedOffset, Utc};
+use chrono::{ Datelike, FixedOffset, Utc};
 
 mod session;
 use crate::session::trace_msg;
@@ -435,7 +438,7 @@ pub fn receive_message() {
 
 // message from receive_message by telnet
 fn process_message(s: &str) {
-    let mut v: Vec<&str> = s.split_whitespace().collect();
+    let v: Vec<&str> = s.split_whitespace().collect();
     if v.len() > 1 {
         match v[0] {
             /* "update" => {
@@ -452,6 +455,7 @@ fn process_message(s: &str) {
     }
 }
 
+#[allow(dead_code)]
 pub fn get_system_log() {
     let fp = PathBuf::from(r#"C:\Windows\System32\winevt\Logs\Application.evtx"#);
     let now = Utc::now().add(FixedOffset::east(8 * 3600));
@@ -485,7 +489,7 @@ pub fn get_system_log() {
         let key_word = "Level\": 2,";
         let key_word2 = "3200";
         let mut contents = String::new();
-        let count = parser.records().count();
+        // let count = parser.records().count();
         for record in parser.records_json() {
             match record {
                 Ok(r) => {

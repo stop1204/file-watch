@@ -14,8 +14,9 @@ regex="1.7.0"
 self_update="0.32.0"
 tempfile = "3.3.0"
 chrono="0.4.19"
-evtx="0.8.0"
-
+evtx="0.7.2"
+hostname="^0.3"
+platform-dirs="0.3.0"
 [profile.dev]
 opt-level = 0
 
