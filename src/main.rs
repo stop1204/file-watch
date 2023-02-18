@@ -1,10 +1,11 @@
-#![windows_subsystem = "windows"]
+// #![windows_subsystem = "windows"]
 
 use file_watch::*;
 use hotwatch::Hotwatch;
 #[allow(unused_imports)]
 use log::{debug, error, info, warn};
 use regex::Regex;
+
 use std::{path::PathBuf, thread::sleep, time::Duration};
 
 /// https://github.com/francesca64/hotwatch
@@ -44,6 +45,11 @@ fn main() {
         Err(e) => error!("watching failed: {},{:?}", path, e),
     });
 
+    
+    std::thread::spawn(move || {
+        recive_message();
+    });
+
     // replace whitespace
 
     let re = Regex::new(r"[ ]{2,}").unwrap();
@@ -59,3 +65,4 @@ fn main() {
         }
     }
 }
+

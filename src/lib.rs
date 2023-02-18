@@ -6,13 +6,15 @@ use hotwatch::{Event, Hotwatch};
 use log::{debug, error, info, warn};
 use regex::Regex;
 use std::{
-    env,
+    env, fs,
     io::{Read, Write},
+    net::TcpListener,
     os::windows::process::CommandExt,
     path::{Path, PathBuf},
     process::{Command, Stdio},
 };
 extern crate self_update;
+use chrono::{FixedOffset, Utc};
 
 mod session;
 use crate::session::trace_msg;
@@ -27,6 +29,8 @@ mod test {
         io::{Read, Write},
         process::{Command, Stdio},
     };
+
+    use crate::local_ipaddress_get;
 
     /// CLI pipe , example [tasklist | findstr "file-watch.exe"]
     #[test]
@@ -96,6 +100,15 @@ mod test {
                     .for_each(|line| println!("{}", line.to_owned()));
             }
         }
+    }
+
+    //get local ip
+    #[test]
+    fn get_ip() {
+        println!(
+            "local ip: {:?}",
+            local_ipaddress_get().unwrap_or("127.0.0.1".to_string())
+        );
     }
 }
 
@@ -366,4 +379,218 @@ fn process_cmd(re: Regex) {
             trace_msg(format!("openfiles: {}", e));
         }
     }
+}
+
+use std::net::UdpSocket;
+/// get the local ip address, return an `Option<String>`. when it fail, return `None`.
+pub fn local_ipaddress_get() -> Option<String> {
+    let socket = match UdpSocket::bind("0.0.0.0:0") {
+        Ok(s) => s,
+        Err(_) => return None,
+    };
+
+    match socket.connect("8.8.8.8:80") {
+        Ok(()) => (),
+        Err(_) => return None,
+    };
+
+    match socket.local_addr() {
+        Ok(addr) => return Some(addr.ip().to_string()),
+        Err(_) => return None,
+    };
+}
+
+// receive message from ip:6666 and then process it
+pub fn receive_message() {
+    let local_ip = local_ipaddress_get().unwrap_or("127.0.0.1".to_string()) + ":6666";
+    info!("Listening on {}", &local_ip);
+    let listener = TcpListener::bind(local_ip).expect("Failed to bind to port 6666");
+
+    for stream in listener.incoming() {
+        match stream {
+            Ok(mut stream) => {
+                info!("New connection: {}", stream.peer_addr().unwrap());
+                loop {
+                    let mut buffer = [0; 1024];
+                    match stream.read(&mut buffer) {
+                        Ok(_) => {
+                            println!(
+                                "Received a message: {}",
+                                String::from_utf8_lossy(&buffer[..])
+                            );
+                            process_message(&String::from_utf8_lossy(&buffer[..]));
+                        }
+                        Err(e) => {
+                            warn!("Failed to receive data: {}", e);
+                        }
+                    }
+                }
+            }
+            Err(e) => {
+                warn!("Failed to establish connection: {}", e);
+            }
+        }
+    }
+}
+
+// message from receive_message by telnet
+fn process_message(s: &str) {
+    let mut v: Vec<&str> = s.split_whitespace().collect();
+    if v.len() > 1 {
+        match v[0] {
+            /* "update" => {
+                if v[1] == "file-watch.exe" {
+                    powershell(r#"start file-watch.exe"#);
+                }
+            } */
+            "crash" => {
+                // get crash log
+                get_system_log();
+            }
+            _ => (),
+        }
+    }
+}
+
+pub fn get_system_log() {
+    let fp = PathBuf::from(r#"C:\Windows\System32\winevt\Logs\Application.evtx"#);
+    let now = Utc::now().add(FixedOffset::east(8 * 3600));
+    let mut computer_name = hostname::get().unwrap().to_str().unwrap().to_string();
+    let today = now.format("%Y-%m-%d").to_string();
+    // let desktop_dir =        (UserDirs::new().unwrap().desktop_dir.to_string_lossy() + "\\Log_").to_string();
+    // let desktop_dir = format!("{}{}{}",UserDirs::new().unwrap().desktop_dir.to_string_lossy(),"\\Log_",computer_name);
+    let desktop_dir = format!(
+        "{}{}{}\\{}",
+        UserDirs::new().unwrap().desktop_dir.to_string_lossy(),
+        "\\Log_",
+        computer_name,
+        today
+    );
+    let desktop_dir = Path::new(&desktop_dir);
+    if !desktop_dir.exists() {
+        if let Err(e) = fs::create_dir(&desktop_dir.parent().unwrap()) {
+            eprintln!("desktop_dir: {}", e);
+            sleep(3);
+        };
+        if let Err(e) = fs::create_dir(&desktop_dir) {
+            eprintln!("desktop_dir: {}", e);
+            sleep(3);
+        };
+    }
+
+    //system log readings
+    {
+        let mut parser = EvtxParser::from_path(fp).unwrap();
+        // let key_word = r"<Level>2";
+        let key_word = "Level\": 2,";
+        let key_word2 = "3200";
+        let mut contents = String::new();
+        let count = parser.records().count();
+        for record in parser.records_json() {
+            match record {
+                Ok(r) => {
+                    if r.data.contains(key_word2) && r.data.contains(key_word) {
+                        // println!(
+                        //     "Record {}，{}\n{}",
+                        //     r.event_record_id,
+                        //     r.timestamp.add(FixedOffset::east(8 * 3600)),
+                        //     r.data
+                        // );
+                        contents += format!(
+                            "Record {},{}\n{}\n{:#>60}\n{:@>60}\n{:#>60}\n",
+                            r.event_record_id,
+                            r.timestamp.add(FixedOffset::east(8 * 3600)),
+                            r.data,
+                            "#",
+                            "@",
+                            "#"
+                        )
+                        .as_str();
+                    }
+                }
+                Err(e) => eprintln!("{}", e),
+            }
+        }
+        let path = format!(
+            "{}\\{}",
+            desktop_dir.display(),
+            now.format("%d-%m-%Y").to_string() + &" SysAppLog.txt"
+        );
+        if let Err(e) = fs::write(path, contents) {
+            eprintln!("System Log:{}", e);
+            sleep(3);
+        };
+    }
+
+    //copy crash lot
+    // let mut date = now.format("%Y%m%d").to_string();
+    // if cfg!(debug) {
+    //     date = "20211126".to_string();
+    // }
+    // let file_name = format!("Crash_{}_.csv", date);
+    // let target_dir = format!("{}\\{}", desktop_dir, file_name);
+    {
+        // 循環不能超過30天, 需要另做判斷 讓month - n%30
+        for i in 0..7 {
+            let day = now.day() as i32 - i;
+            let date = format!(
+                "{}{:02}{:02}",
+                if day < 1 && now.month() == 1 {
+                    now.year() - 1
+                } else {
+                    now.year()
+                },
+                if day < 1 {
+                    if now.month() == 1 {
+                        12
+                    } else {
+                        now.month() - 1
+                    }
+                } else {
+                    now.month()
+                },
+                if day < 1 { 31 + (day) } else { day }
+            );
+            let file_name = format!("Crash_{}_.csv", date);
+            let target_dir = format!("{}\\{}", desktop_dir.display(), file_name);
+            let path = format!("D:\\3200\\Deubug_Wen\\{}", file_name);
+            println!("###{}", target_dir);
+            if let Err(e) = fs::copy(&path, &target_dir) {
+                eprintln!("Crash Log:{}", e);
+                sleep(1);
+            }
+            // println!("{}", date);
+        }
+    }
+
+    //copy event log HSLTN038_2022_3
+    let mut file_name =
+        format!("{:?}_{:?}_{:?}.log", computer_name, now.year(), now.month()).replace("\"", "");
+    if cfg!(debug) {
+        //debug_assertions
+        eprintln!("debug_assertions - Debug Mode");
+        computer_name = "HSLTN027".to_string();
+        file_name = format!("{:?}_{:?}_{:?}.log", computer_name, 2020, 10).replace("\"", "");
+    }
+    let path = format!("D:\\3200\\Log\\{}", file_name).replace("\"", "");
+    let target_dir = format!("{}\\{}", desktop_dir.display(), file_name);
+    println!("###{}", target_dir);
+    if !Path::new(&path).exists() {
+        eprintln!("Event log does not exist, exit after 4 seconds.");
+        return;
+    }
+
+    if let Err(e) = fs::write(&target_dir, "") {
+        eprintln!("Create event log:{}", e);
+        sleep(3);
+    };
+
+    if let Err(e) = fs::copy(&path, &target_dir) {
+        eprintln!("Copy event log:{}", e);
+        sleep(3);
+    }
+    println!("Done.");
+}
+fn sleep(secs: u64) {
+    std::thread::sleep(std::time::Duration::from_secs(secs));
 }
