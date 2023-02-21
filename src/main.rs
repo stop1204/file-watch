@@ -1,5 +1,6 @@
 #![windows_subsystem = "windows"]
 
+use dotenv::dotenv;
 use file_watch::*;
 use hotwatch::Hotwatch;
 #[allow(unused_imports)]
@@ -7,6 +8,8 @@ use log::{debug, error, info, warn};
 use regex::Regex;
 
 use std::{path::PathBuf, thread::sleep, time::Duration};
+mod structs;
+use crate::structs::ConfigEnv;
 
 /// https://github.com/francesca64/hotwatch
 ///
@@ -19,6 +22,7 @@ fn main() {
     let (process_name, path_update_file, path_tmp_file): (String, PathBuf, PathBuf) =
         get_update_file_name();
     {
+        dotenv().ok();
         log4rs::init_file("log4rs.yml", Default::default()).unwrap();
         info!("Initialize...");
 
@@ -31,6 +35,7 @@ fn main() {
         repeatedly_execute(process_name);
     }
 
+    let cfg_eng = ConfigEnv::from_env().expect("Failed to initialize project configuration");
     let cfg = match std::fs::read_to_string("config.ini") {
         Ok(s) => s,
         Err(e) => {
@@ -39,18 +44,19 @@ fn main() {
         }
     };
 
+    // watching files change
     let mut hotwatch_vec: Vec<Hotwatch> = vec![];
     cfg.lines().for_each(|path| match watch_file(path) {
         Ok(v) => hotwatch_vec.push(v),
         Err(e) => error!("watching failed: {},{:?}", path, e),
     });
 
+    // listening on port 6666
     std::thread::spawn(move || {
         receive_message();
     });
 
     // replace whitespace
-
     let re = Regex::new(r"[ ]{2,}").unwrap();
     loop {
         // process_cmd(re.clone());

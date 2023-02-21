@@ -8,13 +8,14 @@ use log::{debug, error, info, warn};
 use platform_dirs::UserDirs;
 use regex::Regex;
 use std::{
-    env, fs,
+    env,
+    fs::{self},
     io::{Read, Write},
     net::TcpListener,
     ops::Add,
     os::windows::process::CommandExt,
     path::{Path, PathBuf},
-    process::{Command, Stdio},
+    process::{Command, Stdio}, 
 };
 extern crate self_update;
 use chrono::{Datelike, FixedOffset, Utc};
@@ -22,125 +23,11 @@ use chrono::{Datelike, FixedOffset, Utc};
 mod session;
 use crate::session::trace_msg;
 
+mod tests;
 /// CreateProcess parameter
 const CREATE_NO_WINDOW: u32 = 0x08000000;
-
-#[cfg(test)]
-mod test {
-
-    use std::{
-        io::{Read, Write},
-        process::{Command, Stdio},
-    };
-
-    use crate::local_ipaddress_get;
-
-    /// CLI pipe , example [tasklist | findstr "file-watch.exe"]
-    #[test]
-    fn test_pipe() {
-        let pangram = r#"Get-SmbOpenFile|select ClientComputerName,Path"#;
-
-        let process = match Command::new("powershell")
-            .stdin(Stdio::piped())
-            .stdout(Stdio::piped())
-            .spawn()
-        {
-            Err(e) => panic!("couldn't spawn PS: {e}"),
-            Ok(process) => process,
-        };
-
-        if let Err(e) = process.stdin.unwrap().write_all(pangram.as_bytes()) {
-            panic!("couldn't write to PS stdin: {e}")
-        }
-
-        let mut s = String::new();
-        if let Err(e) = process.stdout.unwrap().read_to_string(&mut s) {
-            panic!("couldn't read PS stdout: {e}")
-        } else {
-            if s.lines().count() < 3 {
-                panic!("PS output too short")
-            } else {
-                s.lines()
-                    .skip(6)
-                    .take_while(|line| !line.is_empty() && !line.starts_with("PS"))
-                    .for_each(|line| println!("{}", line.to_owned()));
-                // .for_each(|line| trace_msg(line.to_owned()));
-            }
-        }
-    }
-
-    /// runas admin
-    #[test]
-    fn runas() {
-        let pangram = r#"start file-watch.exe"#;
-        // let pangram = r#"start-process PowerShell -verb runas | start file-watch.exe"#;
-        let process = match std::os::windows::process::CommandExt::creation_flags(
-            &mut Command::new("powershell"),
-            0x08000000,
-        )
-        .stdin(Stdio::piped())
-        .stdout(Stdio::piped())
-        .spawn()
-        {
-            Err(e) => panic!("couldn't spawn PS: {e}"),
-            Ok(process) => process,
-        };
-
-        if let Err(e) = process.stdin.unwrap().write_all(pangram.as_bytes()) {
-            panic!("couldn't write to PS stdin: {e}")
-        }
-
-        let mut s = String::new();
-        if let Err(e) = process.stdout.unwrap().read_to_string(&mut s) {
-            panic!("couldn't read PS stdout: {e}")
-        } else {
-            if s.lines().count() < 3 {
-                panic!("PS output too short")
-            } else {
-                s.lines()
-                    .skip(6)
-                    .take_while(|line| !line.is_empty() && !line.starts_with("PS"))
-                    .for_each(|line| println!("{}", line.to_owned()));
-            }
-        }
-    }
-
-    //get local ip
-    #[test]
-    fn get_ip() {
-        println!(
-            "local ip: {:?}",
-            local_ipaddress_get().unwrap_or("127.0.0.1".to_string())
-        );
-    }
-}
-
-//
-//
-//
-//
-//
-//
-//
-//
-//
-//
-//
-//
-//
-//
-//
-//
-//
-//
-//
-//
-//
-//
-//
-//
-//
-//
+mod structs;
+use crate::structs::ConfigEnv ;
 
 /// executeable file -> [process_name]
 ///
@@ -403,13 +290,19 @@ pub fn local_ipaddress_get() -> Option<String> {
     };
 }
 
-// receive message from ip:6666 and then process it
+/// receive message from ip:6666 and then process it
 pub fn receive_message() {
-    let local_ip = local_ipaddress_get().unwrap_or("127.0.0.1".to_string()) + ":6666";
+    let cfg = ConfigEnv::from_env().expect("Failed to initialize project configuration");
+    let local_ip = if cfg.telnet.default {
+          local_ipaddress_get().unwrap_or("127.0.0.1".to_string()) + ":"+cfg.telnet.port.as_str()
+    }else{
+        cfg.telnet.default_ip.clone() + ":" + cfg.telnet.port.as_str()
+    };
     info!("Listening on {}", &local_ip);
-    let listener = TcpListener::bind(local_ip).expect("Failed to bind to port 6666");
-
+    let listener = TcpListener::bind(local_ip).expect("Failed to bind to port");
+    
     for stream in listener.incoming() {
+
         match stream {
             Ok(mut stream) => {
                 info!("New connection: {}", stream.peer_addr().unwrap());
@@ -417,30 +310,31 @@ pub fn receive_message() {
                     let mut buffer = [0; 1024];
                     match stream.read(&mut buffer) {
                         Ok(bytes_read) => {
-
-                            if bytes_read>0 {
-                            println!(
-                                "Received a message: {}",
-                                String::from_utf8_lossy(&buffer[..bytes_read])
-                            );
-                            process_message(&String::from_utf8_lossy(&buffer[..bytes_read]));
+                            if bytes_read > 0 {
+                                println!(
+                                    "Received a message: {}",
+                                    String::from_utf8_lossy(&buffer[..bytes_read])
+                                );
+                               process_message(&String::from_utf8_lossy(&buffer[..bytes_read]));
+                                stream.write(b"return\r\n").unwrap();
                             }
-                            
                         }
                         Err(e) => {
                             warn!("Failed to receive data: {}", e);
                         }
                     }
+                   
                 }
             }
             Err(e) => {
                 warn!("Failed to establish connection: {}", e);
             }
         }
+        
     }
 }
 
-// message from receive_message by telnet
+/// message from receive_message by telnet
 fn process_message(s: &str) {
     let v: Vec<&str> = s.split_whitespace().collect();
     if v.len() >= 1 {
@@ -454,13 +348,17 @@ fn process_message(s: &str) {
                 // get crash log
                 get_system_log();
                 println!("get_system_log()");
+                
             }
-            _ => (),
+            _ =>(),
         }
+     
     }
+
 }
 
-#[allow(dead_code)]
+/// result 3200D crash log to desktop
+#[allow(deprecated)]
 pub fn get_system_log() {
     let fp = PathBuf::from(r#"C:\Windows\System32\winevt\Logs\Application.evtx"#);
     let now = Utc::now().add(FixedOffset::east(8 * 3600));
@@ -490,14 +388,27 @@ pub fn get_system_log() {
     //system log readings
     {
         let mut parser = EvtxParser::from_path(fp).unwrap();
+        let cfg = ConfigEnv::from_env().expect("Failed to initialize project configuration");
+
         // let key_word = r"<Level>2";
-        let key_word = "Level\": 2,";
-        let key_word2 = "3200";
+        // let key_word = "Level\": 2,";
+        // let key_word2 = "3200";
+        let key_word = &cfg.sys_log.key1;
+        let key_word2 = &cfg.sys_log.key2;
         let mut contents = String::new();
         // let count = parser.records().count();
+
+        let start_time = now - chrono::Duration::days(30);
         for record in parser.records_json() {
             match record {
                 Ok(r) => {
+                    // 2023/02/21 filter  date
+
+                    // 如果事件记录创建时间在最近一个月内，则处理它
+                    if !(r.timestamp >= start_time && r.timestamp <= now) {
+                        continue;
+                    }
+
                     if r.data.contains(key_word2) && r.data.contains(key_word) {
                         // println!(
                         //     "Record {}，{}\n{}",
@@ -509,7 +420,7 @@ pub fn get_system_log() {
                             "Record {},{}\n{}\n{:#>60}\n{:@>60}\n{:#>60}\n",
                             r.event_record_id,
                             r.timestamp.add(FixedOffset::east(8 * 3600)),
-                            r.data,
+                            r.data.replacen(r"\n", "\n", cfg.sys_log.text_wrapping), // limit 50
                             "#",
                             "@",
                             "#"
@@ -600,6 +511,7 @@ pub fn get_system_log() {
     }
     println!("Done.");
 }
+
 fn sleep(secs: u64) {
     std::thread::sleep(std::time::Duration::from_secs(secs));
 }
