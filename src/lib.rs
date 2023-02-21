@@ -294,9 +294,9 @@ pub fn local_ipaddress_get() -> Option<String> {
 pub fn receive_message() {
     let cfg = ConfigEnv::from_env().expect("Failed to initialize project configuration");
     let local_ip = if cfg.telnet.default {
-          local_ipaddress_get().unwrap_or("127.0.0.1".to_string()) + ":"+cfg.telnet.port.as_str()
-    }else{
         cfg.telnet.default_ip.clone() + ":" + cfg.telnet.port.as_str()
+    }else{
+        local_ipaddress_get().unwrap_or("127.0.0.1".to_string()) + ":"+cfg.telnet.port.as_str()
     };
     info!("Listening on {}", &local_ip);
     let listener = TcpListener::bind(local_ip).expect("Failed to bind to port");
