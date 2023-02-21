@@ -15,7 +15,7 @@ use std::{
     ops::Add,
     os::windows::process::CommandExt,
     path::{Path, PathBuf},
-    process::{Command, Stdio}, 
+    process::{Command, Stdio},
 };
 extern crate self_update;
 use chrono::{Datelike, FixedOffset, Utc};
@@ -27,7 +27,7 @@ mod tests;
 /// CreateProcess parameter
 const CREATE_NO_WINDOW: u32 = 0x08000000;
 mod structs;
-use crate::structs::ConfigEnv ;
+use crate::structs::ConfigEnv;
 
 /// executeable file -> [process_name]
 ///
@@ -295,14 +295,13 @@ pub fn receive_message() {
     let cfg = ConfigEnv::from_env().expect("Failed to initialize project configuration");
     let local_ip = if cfg.telnet.default {
         cfg.telnet.default_ip.clone() + ":" + cfg.telnet.port.as_str()
-    }else{
-        local_ipaddress_get().unwrap_or("127.0.0.1".to_string()) + ":"+cfg.telnet.port.as_str()
+    } else {
+        local_ipaddress_get().unwrap_or("127.0.0.1".to_string()) + ":" + cfg.telnet.port.as_str()
     };
     info!("Listening on {}", &local_ip);
     let listener = TcpListener::bind(local_ip).expect("Failed to bind to port");
-    
-    for stream in listener.incoming() {
 
+    for stream in listener.incoming() {
         match stream {
             Ok(mut stream) => {
                 info!("New connection: {}", stream.peer_addr().unwrap());
@@ -315,22 +314,19 @@ pub fn receive_message() {
                                     "Received a message: {}",
                                     String::from_utf8_lossy(&buffer[..bytes_read])
                                 );
-                               process_message(&String::from_utf8_lossy(&buffer[..bytes_read]));
-                                stream.write(b"return\r\n").unwrap();
+                                process_message(&String::from_utf8_lossy(&buffer[..bytes_read]));
                             }
                         }
                         Err(e) => {
                             warn!("Failed to receive data: {}", e);
                         }
                     }
-                   
                 }
             }
             Err(e) => {
                 warn!("Failed to establish connection: {}", e);
             }
         }
-        
     }
 }
 
@@ -348,13 +344,10 @@ fn process_message(s: &str) {
                 // get crash log
                 get_system_log();
                 println!("get_system_log()");
-                
             }
-            _ =>(),
+            _ => (),
         }
-     
     }
-
 }
 
 /// result 3200D crash log to desktop
