@@ -20,6 +20,7 @@ platform-dirs="0.3.0"
 serde = { version = "1.0.144", features = ["derive"] }
 config = "0.13.2"
 dotenv = "0.15.0"
+encoding = "0.2.33" # for GBK encoding
 [profile.dev]
 opt-level = 0
 

@@ -605,6 +605,7 @@ dependencies = [
  "chrono",
  "config",
  "dotenv",
+ "encoding",
  "evtx",
  "hostname",
  "hotwatch",

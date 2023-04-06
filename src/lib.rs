@@ -1,6 +1,7 @@
 //! # created by Terry on 2022-11-25
 //!
 //! file-watcher is a tool to watch file changes
+use encoding::{DecoderTrap, all::GBK, Encoding};
 use evtx::EvtxParser;
 use hotwatch::{Event, Hotwatch};
 #[allow(unused_imports)]
@@ -15,7 +16,7 @@ use std::{
     ops::Add,
     os::windows::process::CommandExt,
     path::{Path, PathBuf},
-    process::{Command, Stdio},
+    process::{Command, Stdio}, str::from_utf8,
 };
 extern crate self_update;
 use chrono::{Datelike, FixedOffset, Utc};
@@ -111,7 +112,9 @@ pub fn repeatedly_execute(process_name: String) {
     let mut cmd = Command::new("tasklist");
     cmd.arg("/fi").arg(format!("imagename eq {}", process_name));
     let output = cmd.output().expect("failed to execute process");
-    let output = String::from_utf8(output.stdout).unwrap();
+    // let output = String::from_utf8(output.stdout).unwrap();
+    // 中文解碼
+    let output = GBK.decode(&output.stdout, DecoderTrap::Strict).unwrap();
     // let mut count = 0;
     for line in output.lines() {
         if line.contains(process_name.as_str()) {
@@ -164,9 +167,22 @@ pub fn powershell(pangram: &str) {
     }
 
     let mut s = String::new();
-    if let Err(e) = process.stdout.unwrap().read_to_string(&mut s) {
-        panic!("couldn't read PS stdout: {e}")
+    let mut buffer = Vec::new();
+    // 中文解碼
+    if let Err(e) = process.stdout.unwrap().read_to_end(&mut buffer) {
+           error!("Powershell process error: {:?}", e);
+        panic!("couldn't read PS stdout: {e}");
     } else {
+       
+
+      s=  if let Ok(s) = from_utf8(&buffer) {
+            s.to_string()
+        } else {
+            GBK.decode(&buffer, DecoderTrap::Strict).unwrap()
+      };
+        if s.is_empty() {
+                    return;
+                }
         if s.lines().count() < 3 {
             panic!("PS output too short")
         } else {
@@ -232,7 +248,10 @@ fn process_cmd(re: Regex) {
         .arg("session")
         .output()
         .expect("process failed to execute");
-    match String::from_utf8(cmd1.stdout) {
+    // match String::from_utf8(cmd1.stdout) {
+        // 中文解碼
+      
+    match GBK.decode(&cmd1.stdout, DecoderTrap::Strict) {
         Ok(v) => {
             if v.len() > 10 && !v.contains("no entries") {
                 trace_msg(format!(
@@ -256,7 +275,9 @@ fn process_cmd(re: Regex) {
     // chinese charactor
     // String::from_utf8_lossy(format!("{:?}",cmd2).as_bytes())
 
-    match String::from_utf8(cmd2.stdout) {
+    //中文解碼
+    match GBK.decode(&cmd2.stdout, DecoderTrap::Strict) {
+    // match String::from_utf8(cmd2.stdout) {
         Ok(v) => {
             if v.len() > 10 && !v.contains("No shared") {
                 trace_msg(format!(
