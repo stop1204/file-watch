@@ -13,10 +13,9 @@ mod test {
     use platform_dirs::UserDirs;
     use std::{ops::Add, path::Path};
     extern crate self_update;
-    use crate::{local_ipaddress_get, sleep, structs::{ConfigEnv}};
+    use crate::{local_ipaddress_get, sleep, structs::ConfigEnv};
     use chrono::{Datelike, FixedOffset, Utc};
-use dotenv::dotenv;
-
+    use dotenv::dotenv;
 
     /// CLI pipe , example [tasklist | findstr "file-watch.exe"]
     #[test]
@@ -100,7 +99,7 @@ use dotenv::dotenv;
     #[test]
     #[allow(deprecated)]
     pub fn get_system_log() {
-              dotenv().ok();
+        dotenv().ok();
 
         let fp = PathBuf::from(r#"C:\Windows\System32\winevt\Logs\Application.evtx"#);
         let now = Utc::now().add(FixedOffset::east(8 * 3600));
@@ -261,17 +260,74 @@ use dotenv::dotenv;
 
     #[test]
     fn test_cfg() {
-              dotenv().ok();
+        dotenv().ok();
 
-                let _cfg = ConfigEnv::from_env().expect("Failed to initialize project configuration");
+        let _cfg = ConfigEnv::from_env().expect("Failed to initialize project configuration");
+    }
+    #[test]
+    fn test_cfg_update() {
+        crate::cfg_update("telnet.timeout", "\ntelnet.timeout=10 # seconds");
+    }
+
+    /// chinese character decoding
+    #[test]
+    fn test_gbk() {
+        use encoding::all::GBK;
+        use encoding::{DecoderTrap, Encoding};
+        let b: Vec<u8> = vec![
+            13, 10, 211, 179, 207, 241, 195, 251, 179, 198, 32, 32, 32, 32, 32, 32, 32, 32, 32, 32,
+            32, 32, 32, 32, 32, 32, 32, 32, 32, 32, 32, 32, 32, 80, 73, 68, 32, 187, 225, 187, 176,
+            195, 251, 32, 32, 32, 32, 32, 32, 32, 32, 32, 32, 32, 32, 32, 32, 187, 225, 187, 176,
+            35, 32, 32, 32, 32, 32, 32, 32, 196, 218, 180, 230, 202, 185, 211, 195, 32, 13, 10, 61,
+            61, 61, 61, 61, 61, 61, 61, 61, 61, 61, 61, 61, 61, 61, 61, 61, 61, 61, 61, 61, 61, 61,
+            61, 61, 32, 61, 61, 61, 61, 61, 61, 61, 61, 32, 61, 61, 61, 61, 61, 61, 61, 61, 61, 61,
+            61, 61, 61, 61, 61, 61, 32, 61, 61, 61, 61, 61, 61, 61, 61, 61, 61, 61, 32, 61, 61, 61,
+            61, 61, 61, 61, 61, 61, 61, 61, 61, 13, 10, 102, 105, 108, 101, 45, 119, 97, 116, 99,
+            104, 46, 101, 120, 101, 32, 32, 32, 32, 32, 32, 32, 32, 32, 32, 32, 32, 32, 32, 32, 50,
+            50, 51, 50, 56, 32, 67, 111, 110, 115, 111, 108, 101, 32, 32, 32, 32, 32, 32, 32, 32,
+            32, 32, 32, 32, 32, 32, 32, 32, 32, 32, 32, 32, 49, 32, 32, 32, 32, 32, 49, 48, 44, 55,
+            51, 54, 32, 75, 13, 10,
+        ];
+        println!("{}", GBK.decode(&b, DecoderTrap::Strict).unwrap());
+    }
 }
 
-/// chinese character decoding
-#[test]
-fn test_gbk(){
-    use encoding::{DecoderTrap, Encoding};
-    use encoding::all::GBK;
-    let b:Vec<u8> = vec![13, 10, 211, 179, 207, 241, 195, 251, 179, 198, 32, 32, 32, 32, 32, 32, 32, 32, 32, 32, 32, 32, 32, 32, 32, 32, 32, 32, 32, 32, 32, 32, 32, 80, 73, 68, 32, 187, 225, 187, 176, 195, 251, 32, 32, 32, 32, 32, 32, 32, 32, 32, 32, 32, 32, 32, 32, 187, 225, 187, 176, 35, 32, 32, 32, 32, 32, 32, 32, 196, 218, 180, 230, 202, 185, 211, 195, 32, 13, 10, 61, 61, 61, 61, 61, 61, 61, 61, 61, 61, 61, 61, 61, 61, 61, 61, 61, 61, 61, 61, 61, 61, 61, 61, 61, 32, 61, 61, 61, 61, 61, 61, 61, 61, 32, 61, 61, 61, 61, 61, 61, 61, 61, 61, 61, 61, 61, 61, 61, 61, 61, 32, 61, 61, 61, 61, 61, 61, 61, 61, 61, 61, 61, 32, 61, 61, 61, 61, 61, 61, 61, 61, 61, 61, 61, 61, 13, 10, 102, 105, 108, 101, 45, 119, 97, 116, 99, 104, 46, 101, 120, 101, 32, 32, 32, 32, 32, 32, 32, 32, 32, 32, 32, 32, 32, 32, 32, 50, 50, 51, 50, 56, 32, 67, 111, 110, 115, 111, 108, 101, 32, 32, 32, 32, 32, 32, 32, 32, 32, 32, 32, 32, 32, 32, 32, 32, 32, 32, 32, 32, 49, 32, 32, 32, 32, 32, 49, 48, 44, 55, 51, 54, 32, 75, 13, 10];
-    println!("{}",GBK.decode(&b, DecoderTrap::Strict).unwrap());
-}
+#[cfg(test)]
+mod cobra_tests {
+    use crate::cobra::COBRA;
+    #[test]
+    fn test_cobra() {
+        COBRA::init();
+    }
+
+    #[test]
+    fn test_cobra_connect() {
+        COBRA::connect(14);
+    }
+
+    #[test]
+    /// for  cobra type detection
+    fn test_cobra_type() {
+        let computer_name = if cfg!(debug_assertions) {
+            println!("debug_assertions - Debug Mode");
+            "HSLTN061".to_string()
+        } else {
+            println!("debug_assertions - Release Mode");
+            hostname::get().unwrap().to_str().unwrap().to_string()
+        };
+
+        // if computer_name = 61-68,71,80 then return true
+        println!(
+            "{}",
+            matches!(
+                &computer_name[computer_name.len() - 3..].parse::<i32>(),
+                Ok(61..=68) | Ok(71) | Ok(80)
+            )
+        );
+    }
+    #[test]
+    fn test_test(){
+        let s = vec!["a","b","c"];
+        println!("{:=>5}{}","=" ,s.join("\n"));
+    }
 }

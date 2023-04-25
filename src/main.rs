@@ -1,4 +1,4 @@
-#![windows_subsystem = "windows"]
+#![cfg_attr(not(debug_assertions), windows_subsystem = "windows")]
 
 use dotenv::dotenv;
 use file_watch::*;
@@ -19,6 +19,8 @@ use crate::structs::ConfigEnv;
 ///
 #[allow(unused_variables)]
 fn main() {
+    cfg_update("telnet.timeout", "\ntelnet.timeout=30 # seconds");
+
     let (process_name, path_update_file, path_tmp_file): (String, PathBuf, PathBuf) =
         get_update_file_name();
     {

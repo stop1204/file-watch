@@ -1,7 +1,7 @@
 //! # created by Terry on 2022-11-25
 //!
 //! file-watcher is a tool to watch file changes
-use encoding::{DecoderTrap, all::GBK, Encoding};
+use encoding::{all::GBK, DecoderTrap, Encoding};
 use evtx::EvtxParser;
 use hotwatch::{Event, Hotwatch};
 #[allow(unused_imports)]
@@ -16,20 +16,24 @@ use std::{
     ops::Add,
     os::windows::process::CommandExt,
     path::{Path, PathBuf},
-    process::{Command, Stdio}, str::from_utf8,
+    process::{Command, Stdio},
+    str::from_utf8,
+    time::Duration,
 };
 extern crate self_update;
 use chrono::{Datelike, FixedOffset, Utc};
 
 mod session;
-use crate::session::trace_msg;
+use crate::{cobra::COBRA, session::trace_msg};
 
-mod tests;
 /// CreateProcess parameter
-const CREATE_NO_WINDOW: u32 = 0x08000000;
 mod structs;
+mod tests;
 use crate::structs::ConfigEnv;
 
+mod cobra;
+
+const CREATE_NO_WINDOW: u32 = 0x08000000;
 /// executeable file -> [process_name]
 ///
 /// new file -> [./update/filename.exe]
@@ -170,19 +174,17 @@ pub fn powershell(pangram: &str) {
     let mut buffer = Vec::new();
     // 中文解碼
     if let Err(e) = process.stdout.unwrap().read_to_end(&mut buffer) {
-           error!("Powershell process error: {:?}", e);
+        error!("Powershell process error: {:?}", e);
         panic!("couldn't read PS stdout: {e}");
     } else {
-       
-
-      s=  if let Ok(s) = from_utf8(&buffer) {
+        s = if let Ok(s) = from_utf8(&buffer) {
             s.to_string()
         } else {
             GBK.decode(&buffer, DecoderTrap::Strict).unwrap()
-      };
+        };
         if s.is_empty() {
-                    return;
-                }
+            return;
+        }
         if s.lines().count() < 3 {
             panic!("PS output too short")
         } else {
@@ -249,8 +251,8 @@ fn process_cmd(re: Regex) {
         .output()
         .expect("process failed to execute");
     // match String::from_utf8(cmd1.stdout) {
-        // 中文解碼
-      
+    // 中文解碼
+
     match GBK.decode(&cmd1.stdout, DecoderTrap::Strict) {
         Ok(v) => {
             if v.len() > 10 && !v.contains("no entries") {
@@ -277,7 +279,7 @@ fn process_cmd(re: Regex) {
 
     //中文解碼
     match GBK.decode(&cmd2.stdout, DecoderTrap::Strict) {
-    // match String::from_utf8(cmd2.stdout) {
+        // match String::from_utf8(cmd2.stdout) {
         Ok(v) => {
             if v.len() > 10 && !v.contains("No shared") {
                 trace_msg(format!(
@@ -326,20 +328,33 @@ pub fn receive_message() {
         match stream {
             Ok(mut stream) => {
                 info!("New connection: {}", stream.peer_addr().unwrap());
+                stream.set_read_timeout(Some(Duration::from_secs(cfg.telnet.timeout)));
                 loop {
                     let mut buffer = [0; 1024];
                     match stream.read(&mut buffer) {
                         Ok(bytes_read) => {
                             if bytes_read > 0 {
+                                // recieved  message
+                                stream.write_all(b"\r\nreceived msg\r\n");
                                 println!(
                                     "Received a message: {}",
                                     String::from_utf8_lossy(&buffer[..bytes_read])
                                 );
-                                process_message(&String::from_utf8_lossy(&buffer[..bytes_read]));
+                                let res = process_message(&String::from_utf8_lossy(
+                                    &buffer[..bytes_read],
+                                ));
+                                if !res.is_empty() {
+                                    // println!("send message: {}", res);
+                                    stream.write_all(res.as_bytes());
+                                }
+                                stream.write_all(b"processed msg\r\n");
                             }
                         }
                         Err(e) => {
                             warn!("Failed to receive data: {}", e);
+                            // os error 10053
+                            // if read time out , than break and wait new connection
+                            break;
                         }
                     }
                 }
@@ -352,7 +367,7 @@ pub fn receive_message() {
 }
 
 /// message from receive_message by telnet
-fn process_message(s: &str) {
+fn process_message(s: &str) -> String {
     let v: Vec<&str> = s.split_whitespace().collect();
     if v.len() >= 1 {
         match v[0] {
@@ -366,9 +381,24 @@ fn process_message(s: &str) {
                 get_system_log();
                 println!("get_system_log()");
             }
+            "cobra" => {
+                // get cobra log
+                /* 15, M1 STATUS (Up)  FEEDBACK: T-CASE T_EVAP: 25.0 UP_SENSOR: FALSE DOWN_SENSOR: FALSE HEAD_STATE: RUN HEATER POWER: 100.00 EEV Steps: 177 T_CASE: 23.87 Set Temp:
+                25.00 RH: -26.1 T-Discharge: 157.6 T-Liquid: 82.5 T-Suction: -9.5 T-Ambient: 75.7 P-Discharge: 191.9 P-Suction: 15.1 Compression Ratio: 6.9 Compressor Amps: 5.9 Bypass Steps: 166 SubCooling: 4.2 Superheat: 11.5 ERRORS: WARN:High Ambient Temperature  (22 07 30 22 36) TSD Millivolts: 0.00 TSD Temperature: NaN M1 T-CASE OFFSET: 0.00 Power On Off: 1 TSD Feedback: 0 Dynamic_SV: 25.0 PV: 23.9 M1 POWERBOX: 1 M1 FTC200 PV: 0.0 M1 FTC200 PWM: 0.0
+                 */
+                COBRA::init();
+                // COBRA::connect(1);
+                println!("COBRA::init(1)");
+
+                unsafe {
+                    // COBRA::MESSAGE COLLECT TO STRING
+                    return cobra::COBRA_MESSAGE.join("\n");
+                }
+            }
             _ => (),
         }
     }
+    String::new()
 }
 
 /// result 3200D crash log to desktop
@@ -528,4 +558,42 @@ pub fn get_system_log() {
 
 fn sleep(secs: u64) {
     std::thread::sleep(std::time::Duration::from_secs(secs));
+}
+
+/// 判斷一個給定的文件是否存在字符串 `telnet.timeout`,且該字符串要位於行首,
+///
+/// 如果不存在則在文件末尾添加新行, 添加內容為 `telnet.timeout=10 # seconds`   
+///
+/// 這是用來更新新的配置項, 以便於後續的讀取
+///
+/// `start_with` 用來判斷行首的內容, 例如: `telnet.timeout`
+///
+/// `hole_line` 用來添加的新行, 例如: `telnet.timeout=10 # seconds`
+pub fn cfg_update(start_with: &str, hole_line: &str) {
+    if start_with.is_empty() || hole_line.is_empty() {
+        return;
+    }
+    let mut file = std::fs::OpenOptions::new()
+        .read(true)
+        .write(true)
+        .open(".env")
+        .unwrap();
+    let mut contents = String::new();
+    std::io::Read::read_to_string(&mut file, &mut contents).unwrap();
+    let mut lines = contents.lines();
+    let mut found = false;
+    let mut line_number = 0;
+    for line in lines {
+        line_number += 1;
+        if line.starts_with(start_with) {
+            found = true;
+            break;
+        }
+    }
+    if !found {
+        warn!("some configuration parameters does not exist not found, adding to .env");
+        contents.push_str(hole_line);
+        std::io::Seek::seek(&mut file, std::io::SeekFrom::Start(0)).unwrap();
+        std::io::Write::write_all(&mut file, contents.as_bytes()).unwrap();
+    }
 }
