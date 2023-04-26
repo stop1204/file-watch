@@ -1,3 +1,4 @@
+/// 配合 COBRA_LOG_COLLECT 源碼使用抓取統一數據
 use std::{
     io::{self, ErrorKind, Read, Write},
     net::TcpStream,

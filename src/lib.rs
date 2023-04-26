@@ -328,8 +328,10 @@ pub fn receive_message() {
         match stream {
             Ok(mut stream) => {
                 info!("New connection: {}", stream.peer_addr().unwrap());
+                stream.set_write_timeout(Some(Duration::from_secs(cfg.telnet.timeout)));
                 stream.set_read_timeout(Some(Duration::from_secs(cfg.telnet.timeout)));
                 loop {
+                    
                     let mut buffer = [0; 1024];
                     match stream.read(&mut buffer) {
                         Ok(bytes_read) => {
@@ -348,7 +350,13 @@ pub fn receive_message() {
                                     stream.write_all(res.as_bytes());
                                 }
                                 stream.write_all(b"processed msg\r\n");
+                            }else if bytes_read==0{
+                                // 斷開連接
+                                break;
                             }
+                       
+                       
+                            
                         }
                         Err(e) => {
                             warn!("Failed to receive data: {}", e);
@@ -357,6 +365,7 @@ pub fn receive_message() {
                             break;
                         }
                     }
+
                 }
             }
             Err(e) => {
