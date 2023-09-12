@@ -294,7 +294,9 @@ mod test {
 
 #[cfg(test)]
 mod cobra_tests {
-    use crate::cobra::COBRA;
+    use std::{net::TcpStream, io::Read, thread::Thread};
+
+    use crate::{cobra::COBRA, sleep};
     #[test]
     fn test_cobra() {
         COBRA::init();
@@ -330,4 +332,38 @@ mod cobra_tests {
         let s = vec!["a","b","c"];
         println!("{:=>5}{}","=" ,s.join("\n"));
     }
+
+    // 測試TCP監聽
+    #[test]
+    fn test_tcp_listening(){
+        if let Ok(mut stream) = TcpStream::connect("192.168.0.114:2915"){
+            let mut buffer = [0;1024];
+            // stream.set_read_timeout(dur)
+            println!("默認超時時間: {:?}", stream.read_timeout().unwrap());
+            loop{
+                let now = std::ops::Add::add(chrono::Utc::now(), chrono::FixedOffset::east(8 * 3600));
+                println!("{now}");
+                sleep(1);
+                match stream.read(&mut buffer) {
+                    Ok(bytes_read)=>{
+                        if bytes_read>0{
+                            println!("接收")
+                        }else{
+                            println!("空字符")
+                        }
+                    }
+                    Err(e)=>{
+                        panic!("Err: {e}")
+                    }
+                    
+                }
+                
+            }
+        }
+        else {
+            println!("通訊失敗")
+            
+        }
+    }
+
 }

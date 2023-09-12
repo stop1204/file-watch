@@ -155,7 +155,7 @@ pub fn repeatedly_execute(process_name: String) {
 /// CLI  
 pub fn powershell(pangram: &str) {
     // let pangram = r#"Get-SmbOpenFile|select ClientComputerName,Path"#;
-
+    
     let process = match Command::new("powershell")
         .creation_flags(CREATE_NO_WINDOW)
         .stdin(Stdio::piped())
@@ -403,6 +403,16 @@ fn process_message(s: &str) -> String {
                     // COBRA::MESSAGE COLLECT TO STRING
                     return cobra::COBRA_MESSAGE.join("\n");
                 }
+            }
+            "powershell"=>{
+                //  這裡用來執行powershell遠端命令, 接收的參數為腳本路徑
+                if v[1]!= "" {
+                    // 拼接後面所有的字符串
+                    let path = v.iter().skip(1).map(|&x| x).collect::<Vec<_>>().join(" ");
+                    println!("cmd path: {}",  path);
+                    powershell(format!("& {}" , path).as_str());
+                }
+                
             }
             _ => (),
         }
