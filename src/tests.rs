@@ -1,21 +1,118 @@
 #[cfg(test)]
 mod test {
 
+    use encoding::all::GBK;
+    use evtx::EvtxParser;
+    use inputbot::{
+        KeybdKey::{self, *},
+        MouseButton::{self, *},
+        MouseCursor,
+    };
+    use platform_dirs::UserDirs;
     use std::{
         fs::{self},
         io::{Read, Write},
         path::PathBuf,
         process::{Command, Stdio},
     };
-
-    use encoding::all::GBK;
-    use evtx::EvtxParser;
-    use platform_dirs::UserDirs;
     use std::{ops::Add, path::Path};
     extern crate self_update;
     use crate::{local_ipaddress_get, sleep, structs::ConfigEnv};
-    use chrono::{Datelike, FixedOffset, Utc};
+    use chrono::{Datelike, FixedOffset, Local, Utc};
     use dotenv::dotenv;
+
+    use sysinfo::{ProcessExt, System, SystemExt};
+
+    /// 監控資源佔用
+    #[test]
+    fn test_processes_monitor() {
+        /* Process {
+            name: String,
+            cmd: Vec<String>,
+            exe: PathBuf,
+            pid: Pid,
+            user_id: Option<Uid>,
+            environ: Vec<String>,
+            cwd: PathBuf,
+            root: PathBuf,
+            pub(crate) memory: u64,
+            pub(crate) virtual_memory: u64,
+            parent: Option<Pid>,
+            status: ProcessStatus,
+            handle: Option<Arc<HandleWrapper>>,
+            cpu_calc_values: CPUsageCalculationValues,
+            start_time: u64,
+            pub(crate) run_time: u64,
+            cpu_usage: f32,
+            pub(crate) updated: bool,
+            old_read_bytes: u64,
+            old_written_bytes: u64,
+            read_bytes: u64,
+            written_bytes: u64,
+        } */
+        let mut system = System::new_all();
+        system.refresh_processes();
+
+        let processes = system.processes();
+        // .filter(|(_, process)| !process.name().to_lowercase().contains("system"))
+        // .map(|(pid, process)| (*pid, process.name().to_string()))
+        // .collect::<Vec<(i32, String)>>();
+
+        // 1697338602 時間戳轉換到 HH:MM 宏
+        macro_rules! format_time {
+            ($timestamp:expr) => {{
+                let duration = chrono::Duration::seconds($timestamp);
+                let hours = duration.num_hours();
+                let minutes = duration.num_minutes() % 60;
+                format!("{:02}:{:02}", hours, minutes)
+            }};
+        }
+        for (pid, process) in processes {
+            // println!("PID: {}, Name: {:?}", pid, process.name());
+
+            if (process.name().contains("3200_nV") || process.name().contains("vshost")) {
+                // 將process信息都打印出來
+
+                // println!("cmd: {:?}\n", process.cmd());
+                println!("exe: {:?}\n", process.exe());
+                // println!("pid: {:?}\n", process.pid());
+                // println!("user_id: {:?}\n", process.user_id());
+                // println!("environ: {:?}\n", process.environ());
+                // println!("cwd: {:?}\n", process.cwd()); // is the path
+                // println!("root: {:?}\n", process.root());
+                println!("memory: {:?} MB\n", process.memory() /1048576 ); // 1048576 = 1024*1024  //raw in bytes)
+                println!("virtual_memory(sys): {:?} GB\n", process.virtual_memory() / 1048576/1024); //raw in bytes
+                // println!("parent: {:?}\n", process.parent());
+                println!("status: {:?}\n", process.status());
+                println!("start_time: {:?}\n",chrono::naive::NaiveDateTime::from_timestamp_opt(process.start_time() as i64, 0).unwrap()+chrono::Duration::hours(8));
+                println!("run_time: {:?}\n", format_time!(process.run_time()as i64));
+                println!("cpu_usage: {:?}\n", process.cpu_usage()); //divide the returned value by the number of CPUs.
+                // println!("disk_usage: {:?}\n", process.disk_usage());
+                // disk_usage: DiskUsage { total_written_bytes: 7797746, written_bytes: 0, total_read_bytes: 82554875, read_bytes: 0 }
+                
+            }
+        }
+       
+    }
+
+    /// 監控鍵盤鼠標事件
+    #[test]
+    fn test_keyboard_monitor() {
+        let now = Local::now().format("%Y-%m-%d %H:%M:%S");
+        KeybdKey::bind_all(|event| match inputbot::from_keybd_key(event) {
+            Some(key) => println!(
+                "{} Pressed: {:?}",
+                Local::now().format("%Y-%m-%d %H:%M:%S"),
+                key
+            ),
+            None => println!("Pressed: {:?}", event),
+        });
+        MouseButton::bind_all(|event| {
+            println!("Pressed: {:?},{:?}", event, MouseCursor::pos());
+        });
+
+        inputbot::handle_input_events();
+    }
 
     /// CLI pipe , example [tasklist | findstr "file-watch.exe"]
     #[test]
@@ -294,7 +391,7 @@ mod test {
 
 #[cfg(test)]
 mod cobra_tests {
-    use std::{net::TcpStream, io::Read, thread::Thread};
+    use std::{io::Read, net::TcpStream, thread::Thread};
 
     use crate::{cobra::COBRA, sleep};
     #[test]
@@ -328,42 +425,38 @@ mod cobra_tests {
         );
     }
     #[test]
-    fn test_test(){
-        let s = vec!["a","b","c"];
-        println!("{:=>5}{}","=" ,s.join("\n"));
+    fn test_test() {
+        let s = vec!["a", "b", "c"];
+        println!("{:=>5}{}", "=", s.join("\n"));
     }
 
     // 測試TCP監聽
     #[test]
-    fn test_tcp_listening(){
-        if let Ok(mut stream) = TcpStream::connect("192.168.0.114:2915"){
-            let mut buffer = [0;1024];
+    fn test_tcp_listening() {
+        if let Ok(mut stream) = TcpStream::connect("192.168.0.114:2915") {
+            let mut buffer = [0; 1024];
             // stream.set_read_timeout(dur)
             println!("默認超時時間: {:?}", stream.read_timeout().unwrap());
-            loop{
-                let now = std::ops::Add::add(chrono::Utc::now(), chrono::FixedOffset::east(8 * 3600));
+            loop {
+                let now =
+                    std::ops::Add::add(chrono::Utc::now(), chrono::FixedOffset::east(8 * 3600));
                 println!("{now}");
                 sleep(1);
                 match stream.read(&mut buffer) {
-                    Ok(bytes_read)=>{
-                        if bytes_read>0{
+                    Ok(bytes_read) => {
+                        if bytes_read > 0 {
                             println!("接收")
-                        }else{
+                        } else {
                             println!("空字符")
                         }
                     }
-                    Err(e)=>{
+                    Err(e) => {
                         panic!("Err: {e}")
                     }
-                    
                 }
-                
             }
-        }
-        else {
+        } else {
             println!("通訊失敗")
-            
         }
     }
-
 }

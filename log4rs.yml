@@ -19,7 +19,7 @@ appenders:
       kind: compound 
       trigger: 
         kind: size
-        limit: 50 mb
+        limit: 30 mb
       roller: 
         
         kind: fixed_window
@@ -37,13 +37,44 @@ appenders:
         kind: compound 
         trigger: 
           kind: size
-          limit: 50 mb
+          limit: 30 mb
         roller: 
           
           kind: fixed_window
           pattern: "log/session_{}.log" 
           base: 1 
           count: 50
+
+  keyboard:
+    kind: rolling_file
+    path: "log/keyboard.log"
+    encoder:
+      pattern: "{h([{d(%Y-%m-%d %H:%M:%S)} | {l:>5} ])} {m}{n}"
+    policy:
+      kind: compound
+      trigger:
+        kind: size
+        limit: 30 mb
+      roller:
+        kind: fixed_window
+        pattern: "log/keyboard_{}.log"
+        base: 1
+        count: 50
+  process:
+    kind: rolling_file
+    path: "log/process.log"
+    encoder:
+      pattern: "{h([{d(%Y-%m-%d %H:%M:%S)} | {l:>5} ])} {m}{n}"
+    policy:
+      kind: compound
+      trigger:
+        kind: size
+        limit: 30 mb
+      roller:
+        kind: fixed_window
+        pattern: "log/keyboard_{}.log"
+        base: 1
+        count: 50
 # Set the default logging level to "warn" and attach the "stdout" appender to the root
 # trace > debug > info > warn > error
 root:
@@ -66,3 +97,16 @@ loggers:
 
   evtx::evtx_chunk:
     level: off
+
+  file_watch::keyboard_monitor:
+    level: INFO
+    appenders:
+      - keyboard
+      - stdout
+    additive: false
+
+  file_watch::process_monitor:
+    level: INFO
+    appenders:
+      - process
+    additive: false

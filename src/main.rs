@@ -53,11 +53,20 @@ fn main() {
         Err(e) => error!("watching failed: {},{:?}", path, e),
     });
 
+    // keyboard_monitor
+
     // listening on port 6666
-    std::thread::spawn(move || {
+    let thread1 = std::thread::spawn(move || {
         receive_message();
     });
-
+    // 創建一個新的線程，用於監控進程狀態
+    let thread2 = std::thread::spawn(move || {
+        processes_monitor();
+    });
+    let thread3 = std::thread::spawn(move || {
+        keyboard_monitor();
+    });
+    
     // replace whitespace
     let re = Regex::new(r"[ ]{2,}").unwrap();
     loop {

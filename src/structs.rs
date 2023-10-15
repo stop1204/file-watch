@@ -1,4 +1,7 @@
-use std::{sync::{mpsc, Arc, Mutex}, thread};
+use std::{
+    sync::{mpsc, Arc, Mutex},
+    thread,
+};
 
 use serde::Deserialize;
 ///
@@ -17,12 +20,20 @@ pub struct TelnetConfig {
     pub default: bool,
     pub default_ip: String,
     pub port: String,
-    pub timeout:u64,
+    pub timeout: u64,
+}
+
+#[derive(Deserialize, Clone)]
+pub struct MonitorConfig {
+    pub default: bool,
+    pub refresh_interval: u64,
+    pub process: String,
 }
 #[derive(Deserialize, Clone)]
 pub struct ConfigEnv {
     pub sys_log: SysLogConfig,
     pub telnet: TelnetConfig,
+    pub monitor: MonitorConfig,
 }
 impl ConfigEnv {
     /// 从环境变量中初始化配置
@@ -82,11 +93,6 @@ impl ConfigEnv {
         }
     } */
 }
-
-
-
-
-
 
 type Job = Box<dyn FnOnce() + Send + 'static>;
 
@@ -177,4 +183,3 @@ impl Worker {
         }
     }
 }
-
