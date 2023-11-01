@@ -84,9 +84,17 @@ pub fn key_send(index_trigger: i32) {
             Ok(reader) => {
                 AUTO_INPUT_STRING = reader;
                 // 正则表达式匹配模式
-                let pattern = Regex::new(r#"^(\d+),(\d+),(.*?),(.*?),(.*?)$"#).unwrap();
+                let pattern = Regex::new(r#"^(\d+),(\d+),(.*?),(.*?),(.*?),(.*?)$"#).unwrap();
                 let bracket_pattern = Regex::new(r#"(\[.*?])"#).unwrap();
 
+                // 早夜班時間不同
+                let now: chrono::DateTime<chrono::Local> = chrono::Local::now();
+                let current_shift =
+                    if chrono::Timelike::hour(&now) >= 7 && chrono::Timelike::hour(&now) < 19 {
+                        "d"
+                    } else {
+                        "n"
+                    };
                 // 逐行读取并处理
                 for line in AUTO_INPUT_STRING.lines() {
                     if line.is_empty() {
@@ -100,7 +108,7 @@ pub fn key_send(index_trigger: i32) {
                         let window_title: &str = &captures[3].trim().to_lowercase();
                         let delay: u64 = captures[4].parse().unwrap();
                         let strings: &str = &captures[5];
-
+                        let shift: &str = &captures[6].trim().to_lowercase();
                         // 在这里进行处理逻辑
                         // 忽略注釋行
                         if !line.starts_with("//") {
@@ -110,6 +118,7 @@ pub fn key_send(index_trigger: i32) {
                             }
                             if (window_title_matching_pattern != 0
                                 && window_title_matching_pattern != 1)
+                                || (shift != "n" && shift != "d")
                                 || delay > 10000
                                 || strings.is_empty()
                                 || window_title.len() < 3
@@ -136,6 +145,8 @@ pub fn key_send(index_trigger: i32) {
                             {
                                 // log::debug!("matching: 0,fail");
                                 // 0 部分匹配 失敗
+                                continue;
+                            } else if current_shift != shift {
                                 continue;
                             }
 
