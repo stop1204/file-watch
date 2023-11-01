@@ -1,6 +1,6 @@
 [package]
 name = "file-watch"
-version = "0.3.0"
+version = "0.4.0"
 edition = "2021"
 authors = ["Terry.He < HL928452957@gmail.com >"]
 
@@ -23,6 +23,8 @@ dotenv = "0.15.0"
 encoding = "0.2.33"                                    # for GBK encoding
 inputbot = "0.6.0"                                     # monitoring keyboard & mouse
 sysinfo = "0.29.10"                                    # get process info
+
+winapi="0.3.9"
 
 [profile.dev]
 opt-level = 0

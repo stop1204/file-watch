@@ -28,6 +28,10 @@ pub struct MonitorConfig {
     pub default: bool,
     pub refresh_interval: u64,
     pub process: String,
+    pub auto_input:bool,
+    pub auto_input_engineer_permission:String,
+    pub auto_input_engineer_name:String,
+    pub auto_input_engineer_password:String,
 }
 #[derive(Deserialize, Clone)]
 pub struct ConfigEnv {

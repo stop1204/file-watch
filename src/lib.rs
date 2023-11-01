@@ -4,13 +4,14 @@
 use encoding::{all::GBK, DecoderTrap, Encoding};
 use evtx::EvtxParser;
 use hotwatch::{Event, Hotwatch};
-use inputbot::{KeybdKey, MouseButton, MouseCursor};
+use inputbot::{handle_input_events, KeySequence, KeybdKey, MouseButton, MouseCursor};
 #[allow(unused_imports)]
 use log::{debug, error, info, warn};
 use platform_dirs::UserDirs;
 use regex::Regex;
 use std::{
     env,
+    fmt::format,
     fs::{self},
     io::{Read, Write},
     net::TcpListener,
@@ -18,8 +19,10 @@ use std::{
     os::windows::process::CommandExt,
     path::{Path, PathBuf},
     process::{Command, Stdio},
+    rc::Rc,
     str::from_utf8,
-    time::Duration, fmt::format,
+    sync::Arc,
+    time::Duration,
 };
 extern crate self_update;
 use chrono::{Datelike, FixedOffset, Local, Utc};
@@ -40,6 +43,9 @@ use keyboard_monitor::*;
 use sysinfo::{Pid, ProcessExt, ProcessRefreshKind, System, SystemExt};
 mod process_monitor;
 use process_monitor::*;
+
+// for keyboard monitor show console
+use winapi::um::{consoleapi::AllocConsole, wincon::FreeConsole};
 
 const CREATE_NO_WINDOW: u32 = 0x08000000;
 /// executeable file -> [process_name]
@@ -580,7 +586,9 @@ pub fn get_system_log() {
 fn sleep(secs: u64) {
     std::thread::sleep(std::time::Duration::from_secs(secs));
 }
-
+fn sleep_ms(millis: u64) {
+    std::thread::sleep(std::time::Duration::from_millis(millis));
+}
 /// 判斷一個給定的文件是否存在字符串 `telnet.timeout`,且該字符串要位於行首,
 ///
 /// 如果不存在則在文件末尾添加新行, 添加內容為 `telnet.timeout=10 # seconds`   
@@ -619,12 +627,193 @@ pub fn cfg_update(start_with: &str, hole_line: &str) {
     }
 }
 
-/// 監控鍵盤和鼠標
+/// release_keys!(1) -> release ctrl
+///
+/// release_keys!(2) -> release alt
+///
+/// release_keys!(3) -> release shift
+///
+/// release_keys!(4) -> release ctrl + alt
+///
+/// release_keys!(5) -> release ctrl + shift
+///
+/// release_keys!(6) -> release alt + shift
+///
+/// release_keys!(7) -> release ctrl + alt + shift
+///
+/// release_keys!(_) -> release nothing
+macro_rules! release_keys {
+    (1) => {
+        KeybdKey::LControlKey.release();
+    };
+    (2) => {
+        KeybdKey::LAltKey.release();
+    };
+    (3) => {
+        KeybdKey::LShiftKey.release();
+    };
+    (4) => {
+        KeybdKey::LControlKey.release();
+        KeybdKey::LAltKey.release();
+    };
+    (5) => {
+        KeybdKey::LControlKey.release();
+        KeybdKey::LShiftKey.release();
+    };
+    (6) => {
+        KeybdKey::LAltKey.release();
+        KeybdKey::LShiftKey.release();
+    };
+    (7) => {
+        KeybdKey::LControlKey.release();
 
+        KeybdKey::LAltKey.release();
+        KeybdKey::LShiftKey.release();
+    };
+    (_) => {};
+}
+
+/// ctrl + alt + 5/8/9/0/1/2  1-permission 2-input password
+///
+/// 5 reload cfg
+/// 8 show console
+/// 9 hide console
+///
+/// ctrl + 1-9  ->  input user password
+///
+/// ctrl + shift + 0  ->  open setting
 pub fn keyboard_monitor() {
+    let cfg = ConfigEnv::from_env().expect("Failed to initialize project configuration");
+    if !cfg.monitor.default {
+        return;
+    }
+    unsafe {
+        AUTO_INPUT_ON_OFF = cfg.monitor.auto_input;
+        AUTO_INPUT_ENGINEER_PERMISSION = cfg.monitor.auto_input_engineer_permission;
+        AUTO_INPUT_ENGINEER_NAME = cfg.monitor.auto_input_engineer_name;
+        AUTO_INPUT_ENGINEER_PASSWORD = cfg.monitor.auto_input_engineer_password;
+    }
     // let now = Local::now().format("%Y-%m-%d %H:%M:%S");
     KeybdKey::bind_all(|event| match inputbot::from_keybd_key(event) {
-        Some(key) => key_msg(format!("{:?}", key)),
+        Some(key) => {
+            key_msg(format!("{:?}", key));
+
+            // 下面是快捷鍵
+            if KeybdKey::LControlKey.is_pressed() {
+                if KeybdKey::LAltKey.is_pressed() {
+                    match key {
+                        '1' => unsafe {
+                            release_keys!(4);
+                            inputbot::KeySequence(AUTO_INPUT_ENGINEER_PERMISSION.as_str()).send();
+                            key_msg_debug("Engineer login");
+                        },
+                        '2' => unsafe {
+                            release_keys!(4);
+                            inputbot::KeySequence(AUTO_INPUT_ENGINEER_NAME.as_str()).send();
+                            KeybdKey::TabKey.press();
+                            KeybdKey::TabKey.release();
+                            inputbot::KeySequence(AUTO_INPUT_ENGINEER_PASSWORD.as_str()).send();
+                            key_msg_debug("Engineer user");
+                        },
+                        '5' => unsafe {
+                            release_keys!(4);
+                            let cfg = ConfigEnv::from_env()
+                                .expect("Failed to initialize project configuration");
+                            if !cfg.monitor.default {
+                                return;
+                            }
+                            unsafe {
+                                AUTO_INPUT_ON_OFF = cfg.monitor.auto_input;
+                                AUTO_INPUT_ENGINEER_PERMISSION =
+                                    cfg.monitor.auto_input_engineer_permission;
+                                AUTO_INPUT_ENGINEER_NAME = cfg.monitor.auto_input_engineer_name;
+                                AUTO_INPUT_ENGINEER_PASSWORD =
+                                    cfg.monitor.auto_input_engineer_password;
+                            }
+                            key_msg_debug("Reload cfg");
+                        },
+                        // show console
+                        '8' => unsafe {
+                            release_keys!(4);
+                            AllocConsole();
+                            key_msg_debug("show console");
+                        },
+                        // hide console
+                        '9' => unsafe {
+                            release_keys!(4);
+
+                            FreeConsole();
+                            key_msg_debug("hide console");
+                        },
+                        // get window title
+                        '0' => {
+                            release_keys!(4);
+
+                            key_msg_debug(
+                                format!(
+                                    "Current window title: {}",
+                                    get_foreground_window_title().unwrap()
+                                )
+                                .as_str(),
+                            );
+                        }
+
+                        _ => {}
+                    }
+                } else {
+                    // 已經在key_send 内部 release_key
+                    match key {
+                        '1' => {
+                            key_send(1);
+                        }
+                        '2' => {
+                            key_send(2);
+                        }
+                        '3' => {
+                            key_send(3);
+                        }
+                        '4' => {
+                            key_send(4);
+                        }
+                        '5' => {
+                            key_send(5);
+                        }
+                        '6' => {
+                            key_send(6);
+                        }
+                        '7' => {
+                            key_send(7);
+                        }
+                        '8' => {
+                            key_send(8);
+                        }
+                        '9' => {
+                            key_send(9);
+                        }
+
+                        _ => (),
+                    }
+                }
+
+                if KeybdKey::LShiftKey.is_pressed() {
+                    match key {
+                        '0' => {
+                            release_keys!(5);
+
+                            let current_dir =
+                                std::env::current_dir().expect("Failed to get current directory");
+                            let notepad_ini_path = current_dir.join("auto_input.ini");
+                            // warn!("notepad_ini_path: {:?}", notepad_ini_path);
+                            Command::new("notepad.exe")
+                                .arg(notepad_ini_path)
+                                .spawn()
+                                .expect("Failed to execute command");
+                        }
+                        _ => {}
+                    }
+                }
+            }
+        }
         //println!("{:?}", key),
         // Local::now().format("%Y-%m-%d %H:%M:%S"),
         None => key_msg(format!("{:?}", event)),
@@ -652,14 +841,14 @@ pub fn processes_monitor() {
             format!("{:02}:{:02}", hours, minutes)
         }};
     }
-    
+
     let mut system = System::new_all();
     let monitor_process: Vec<&str> = monitor_process_array
-    .trim_matches('"')
-    .trim()
-    .split(',')
-    .map(|s| s.trim())
-    .collect();
+        .trim_matches('"')
+        .trim()
+        .split(',')
+        .map(|s| s.trim())
+        .collect();
     loop {
         let processes = system.processes();
         'outer: for (id, process) in processes {

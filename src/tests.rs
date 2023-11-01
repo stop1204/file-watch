@@ -80,19 +80,28 @@ mod test {
                 // println!("environ: {:?}\n", process.environ());
                 // println!("cwd: {:?}\n", process.cwd()); // is the path
                 // println!("root: {:?}\n", process.root());
-                println!("memory: {:?} MB\n", process.memory() /1048576 ); // 1048576 = 1024*1024  //raw in bytes)
-                println!("virtual_memory(sys): {:?} GB\n", process.virtual_memory() / 1048576/1024); //raw in bytes
-                // println!("parent: {:?}\n", process.parent());
+                println!("memory: {:?} MB\n", process.memory() / 1048576); // 1048576 = 1024*1024  //raw in bytes)
+                println!(
+                    "virtual_memory(sys): {:?} GB\n",
+                    process.virtual_memory() / 1048576 / 1024
+                ); //raw in bytes
+                   // println!("parent: {:?}\n", process.parent());
                 println!("status: {:?}\n", process.status());
-                println!("start_time: {:?}\n",chrono::naive::NaiveDateTime::from_timestamp_opt(process.start_time() as i64, 0).unwrap()+chrono::Duration::hours(8));
-                println!("run_time: {:?}\n", format_time!(process.run_time()as i64));
+                println!(
+                    "start_time: {:?}\n",
+                    chrono::naive::NaiveDateTime::from_timestamp_opt(
+                        process.start_time() as i64,
+                        0
+                    )
+                    .unwrap()
+                        + chrono::Duration::hours(8)
+                );
+                println!("run_time: {:?}\n", format_time!(process.run_time() as i64));
                 println!("cpu_usage: {:?}\n", process.cpu_usage()); //divide the returned value by the number of CPUs.
-                // println!("disk_usage: {:?}\n", process.disk_usage());
-                // disk_usage: DiskUsage { total_written_bytes: 7797746, written_bytes: 0, total_read_bytes: 82554875, read_bytes: 0 }
-                
+                                                                    // println!("disk_usage: {:?}\n", process.disk_usage());
+                                                                    // disk_usage: DiskUsage { total_written_bytes: 7797746, written_bytes: 0, total_read_bytes: 82554875, read_bytes: 0 }
             }
         }
-       
     }
 
     /// 監控鍵盤鼠標事件
@@ -438,8 +447,10 @@ mod cobra_tests {
             // stream.set_read_timeout(dur)
             println!("默認超時時間: {:?}", stream.read_timeout().unwrap());
             loop {
-                let now =
-                    std::ops::Add::add(chrono::Utc::now(), chrono::FixedOffset::east(8 * 3600));
+                let now = std::ops::Add::add(
+                    chrono::Utc::now(),
+                    chrono::FixedOffset::east_opt(8 * 3600).unwrap(),
+                );
                 println!("{now}");
                 sleep(1);
                 match stream.read(&mut buffer) {
@@ -457,6 +468,86 @@ mod cobra_tests {
             }
         } else {
             println!("通訊失敗")
+        }
+    }
+
+    use regex::Regex;
+    use std::fs::File;
+    use std::io::{BufRead, BufReader};
+    /// read auto_input and send keys
+    #[test]
+    fn print_inputbot_key() {
+        // 打印 enum inputbot::KeybdKey
+        // for i in 0..=255 {
+        //     println!("{i:>3}, {:?}",inputbot::KeybdKey::from(i));
+        // }
+
+        // 打开文本文件
+
+        // let file = File::open("auto_input.ini").expect("Failed to open file");
+        match File::open("auto_input.ini") {
+            Ok(file) => {
+                let reader = BufReader::new(file);
+                // 文件打开成功，继续处理
+
+                // 正则表达式匹配模式
+                let pattern = Regex::new(r#"^(\d+),(\d+),(.*?),(.*?),(.*?)$"#).unwrap();
+                let bracket_pattern = Regex::new(r#"(\[.*?])"#).unwrap();
+
+                // 逐行读取并处理
+                for line in reader.lines() {
+                    if let Ok(line) = line {
+                        // 匹配正则表达式
+                        if let Some(captures) = pattern.captures(&line) {
+                            // 解析匹配的数据
+                            let index: u32 = captures[1].parse().unwrap();
+                            let window_title_matching_pattern: u32 = captures[2].parse().unwrap();
+                            let window_title: &str = &captures[3];
+                            let delay: u32 = captures[4].parse().unwrap();
+                            let strings: &str = &captures[5];
+
+                            // 判断是否以 "//" 开头
+                            if !line.starts_with("//") {
+                                // 在这里进行你的处理逻辑
+                                println!("Index: {}", index);
+                                println!(
+                                    "Window Title Matching Pattern: {}",
+                                    window_title_matching_pattern
+                                );
+                                println!("Window Title: {}", window_title);
+                                println!("Delay: {}", delay);
+                                let mut prev_end = 0;
+                                for capture in bracket_pattern.captures_iter(strings) {
+                                    let start = capture.get(0).unwrap().start();
+                                    let end = capture.get(0).unwrap().end();
+
+                                    if prev_end < start {
+                                        let outside_content = &strings[prev_end..start];
+                               
+                                        println!("{}", outside_content);
+                                    }
+
+                                    let bracket_content = &strings[start..end];
+                                    println!("BRACKET: {}", bracket_content);
+
+                                    prev_end = end;
+                                }
+
+                                if prev_end < strings.len() {
+                                    let outside_content = &strings[prev_end..];
+                                    println!("{}", outside_content);
+                                }
+                                // println!("Strings: {}", strings);
+                                println!("---");
+                            }
+                        }
+                    }
+                }
+            }
+            Err(_) => {
+                // 文件打开失败，执行另一个函数
+                log::error!("Failed to open file (auto_input.ini)")
+            }
         }
     }
 }

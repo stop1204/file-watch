@@ -99,7 +99,7 @@ loggers:
     level: off
 
   file_watch::keyboard_monitor:
-    level: INFO
+    level: DEBUG
     appenders:
       - keyboard
       - stdout
