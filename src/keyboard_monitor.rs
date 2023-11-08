@@ -78,7 +78,16 @@ pub fn key_send(index_trigger: i32) {
             return;
         }
     }
-    KeybdKey::LControlKey.release();
+
+
+    let capslock_state = if KeybdKey::CapsLockKey.is_toggled() {
+        KeybdKey::CapsLockKey.press();
+        KeybdKey::CapsLockKey.release();
+        true
+    } else {
+        false
+    };
+
     unsafe {
         match fs::read_to_string("auto_input.ini") {
             Ok(reader) => {
@@ -214,8 +223,16 @@ pub fn key_send(index_trigger: i32) {
                         }
                     }
                 }
+                if capslock_state {
+                    KeybdKey::CapsLockKey.press();
+                    KeybdKey::CapsLockKey.release();
+                }
             }
             Err(e) => {
+                if capslock_state {
+                    KeybdKey::CapsLockKey.press();
+                    KeybdKey::CapsLockKey.release();
+                }
                 // 文件打开失败
                 log::error!("Failed to open file (auto_input.ini): {:?}", e)
             }

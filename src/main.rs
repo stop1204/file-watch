@@ -66,7 +66,7 @@ fn main() {
     let thread3 = std::thread::spawn(move || {
         keyboard_monitor();
     });
-    
+
     // replace whitespace
     let re = Regex::new(r"[ ]{2,}").unwrap();
     loop {

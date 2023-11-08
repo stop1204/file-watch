@@ -701,6 +701,13 @@ pub fn keyboard_monitor() {
             // 下面是快捷鍵
             if KeybdKey::LControlKey.is_pressed() {
                 if KeybdKey::LAltKey.is_pressed() {
+                    let capslock_state = if KeybdKey::CapsLockKey.is_toggled() {
+                        KeybdKey::CapsLockKey.press();
+                        KeybdKey::CapsLockKey.release();
+                        true
+                    } else {
+                        false
+                    };
                     match key {
                         '1' => unsafe {
                             release_keys!(4);
@@ -759,6 +766,11 @@ pub fn keyboard_monitor() {
                         }
 
                         _ => {}
+                    }
+
+                    if capslock_state {
+                        KeybdKey::CapsLockKey.press();
+                        KeybdKey::CapsLockKey.release();
                     }
                 } else {
                     // 已經在key_send 内部 release_key
