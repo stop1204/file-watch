@@ -67,7 +67,37 @@ pub fn get_foreground_window_title() -> Option<String> {
 
     None
 }
+macro_rules! release_keys {
+    (1) => {
+        KeybdKey::LControlKey.release();
+    };
+    (2) => {
+        KeybdKey::LAltKey.release();
+    };
+    (3) => {
+        KeybdKey::LShiftKey.release();
+    };
+    (4) => {
+        KeybdKey::LControlKey.release();
+        KeybdKey::LAltKey.release();
+    };
+    (5) => {
+        KeybdKey::LControlKey.release();
+        KeybdKey::LShiftKey.release();
+    };
+    (6) => {
+        KeybdKey::LAltKey.release();
+        KeybdKey::LShiftKey.release();
+    };
+    (7) => {
+        KeybdKey::LControlKey.release();
 
+        KeybdKey::LAltKey.release();
+        KeybdKey::LShiftKey.release();
+    };
+    
+    (_) => {};
+}
 /// 使用快捷鍵觸發
 ///
 /// 讀取每一行文本,區分 abc[alt]abc 括號内外的内容,用來模擬按鍵
@@ -78,7 +108,7 @@ pub fn key_send(index_trigger: i32) {
             return;
         }
     }
-
+    release_keys!(7);
 
     let capslock_state = if KeybdKey::CapsLockKey.is_toggled() {
         KeybdKey::CapsLockKey.press();

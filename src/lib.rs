@@ -670,6 +670,7 @@ macro_rules! release_keys {
         KeybdKey::LAltKey.release();
         KeybdKey::LShiftKey.release();
     };
+    
     (_) => {};
 }
 
@@ -701,6 +702,8 @@ pub fn keyboard_monitor() {
             // 下面是快捷鍵
             if KeybdKey::LControlKey.is_pressed() {
                 if KeybdKey::LAltKey.is_pressed() {
+                    release_keys!(7); //release all
+                    
                     let capslock_state = if KeybdKey::CapsLockKey.is_toggled() {
                         KeybdKey::CapsLockKey.press();
                         KeybdKey::CapsLockKey.release();
@@ -710,12 +713,10 @@ pub fn keyboard_monitor() {
                     };
                     match key {
                         '1' => unsafe {
-                            release_keys!(4);
                             inputbot::KeySequence(AUTO_INPUT_ENGINEER_PERMISSION.as_str()).send();
                             key_msg_debug("Engineer login");
                         },
                         '2' => unsafe {
-                            release_keys!(4);
                             inputbot::KeySequence(AUTO_INPUT_ENGINEER_NAME.as_str()).send();
                             KeybdKey::TabKey.press();
                             KeybdKey::TabKey.release();
@@ -723,7 +724,6 @@ pub fn keyboard_monitor() {
                             key_msg_debug("Engineer user");
                         },
                         '5' => unsafe {
-                            release_keys!(4);
                             let cfg = ConfigEnv::from_env()
                                 .expect("Failed to initialize project configuration");
                             if !cfg.monitor.default {
@@ -741,20 +741,17 @@ pub fn keyboard_monitor() {
                         },
                         // show console
                         '8' => unsafe {
-                            release_keys!(4);
                             AllocConsole();
                             key_msg_debug("show console");
                         },
                         // hide console
                         '9' => unsafe {
-                            release_keys!(4);
 
                             FreeConsole();
                             key_msg_debug("hide console");
                         },
                         // get window title
                         '0' => {
-                            release_keys!(4);
 
                             key_msg_debug(
                                 format!(
@@ -810,7 +807,7 @@ pub fn keyboard_monitor() {
                 if KeybdKey::LShiftKey.is_pressed() {
                     match key {
                         '0' => {
-                            release_keys!(5);
+                            release_keys!(7);
 
                             let current_dir =
                                 std::env::current_dir().expect("Failed to get current directory");
