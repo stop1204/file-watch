@@ -72,7 +72,7 @@ appenders:
         limit: 30 mb
       roller:
         kind: fixed_window
-        pattern: "log/keyboard_{}.log"
+        pattern: "log/process_{}.log"
         base: 1
         count: 50
 # Set the default logging level to "warn" and attach the "stdout" appender to the root
