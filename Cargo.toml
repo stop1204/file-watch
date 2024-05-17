@@ -23,8 +23,7 @@ dotenv = "0.15.0"
 encoding = "0.2.33"                                    # for GBK encoding
 inputbot = "0.6.0"                                     # monitoring keyboard & mouse
 sysinfo = "0.29.10"                                    # get process info
-
-winapi="0.3.9"
+winapi={version="0.3.9", features = ["consoleapi"]}
 
 [profile.dev]
 opt-level = 0

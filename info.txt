@@ -1,19 +1,21 @@
 1/11/2023 v0.4.0
-1. 增加自動輸入功能
-需要更新如下配置文件
+1. Add auto input function
+# Required Files
 ./auto_input.ini
 ./log4rs.toml
 ./.env
+./config.ini   (Exclude the directory to be monitored)
 
 15/10/2023 v0.3.0
-1. 增加鍵盤,鼠標,process記錄功能
+1. Record keyboard and mouse events
+2. Monitor process status
 
 18/2/2023 v0.2.0
-1. telnet 功能
-2. remote power shell 功能
+1. Add Telnet function
+2. Add remote PowerShell function
 
 25/11/2022 v0.1.0
-1. 記錄D:\3200文件操作
+1. Record file operations in D:\3200
 
 
 base

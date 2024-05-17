@@ -45,6 +45,7 @@ mod process_monitor;
 use process_monitor::*;
 
 // for keyboard monitor show console
+
 use winapi::um::{consoleapi::AllocConsole, wincon::FreeConsole};
 
 const CREATE_NO_WINDOW: u32 = 0x08000000;
@@ -166,7 +167,7 @@ pub fn repeatedly_execute(process_name: String) {
     return;
 }
 
-/// CLI  
+/// CLI
 pub fn powershell(pangram: &str) {
     // let pangram = r#"Get-SmbOpenFile|select ClientComputerName,Path"#;
 
@@ -591,7 +592,7 @@ fn sleep_ms(millis: u64) {
 }
 /// 判斷一個給定的文件是否存在字符串 `telnet.timeout`,且該字符串要位於行首,
 ///
-/// 如果不存在則在文件末尾添加新行, 添加內容為 `telnet.timeout=10 # seconds`   
+/// 如果不存在則在文件末尾添加新行, 添加內容為 `telnet.timeout=10 # seconds`
 ///
 /// 這是用來更新新的配置項, 以便於後續的讀取
 ///
@@ -670,7 +671,7 @@ macro_rules! release_keys {
         KeybdKey::LAltKey.release();
         KeybdKey::LShiftKey.release();
     };
-    
+
     (_) => {};
 }
 
@@ -703,7 +704,7 @@ pub fn keyboard_monitor() {
             if KeybdKey::LControlKey.is_pressed() {
                 if KeybdKey::LAltKey.is_pressed() {
                     release_keys!(7); //release all
-                    
+
                     let capslock_state = if KeybdKey::CapsLockKey.is_toggled() {
                         KeybdKey::CapsLockKey.press();
                         KeybdKey::CapsLockKey.release();
