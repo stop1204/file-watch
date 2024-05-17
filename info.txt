@@ -8,7 +8,7 @@
 ./auto_input.ini
 ./log4rs.toml
 ./.env
-./config.ini   (Exclude the directory to be monitored)
+./config.ini   ( directory to be monitored)
 
 15/10/2023 v0.3.0
 1. Record keyboard and mouse events
