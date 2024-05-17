@@ -1,3 +1,7 @@
+//Ctrl + Alt + 8: Show Console window
+//Ctrl + Alt + 9: Hide Console window
+//Ctrl + Alt + 0: Print current window title in console
+
 1/11/2023 v0.4.0
 1. Add auto input function
 # Required Files
