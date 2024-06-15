@@ -8,14 +8,15 @@ use log::{debug, error, info, warn};
 use regex::Regex;
 
 use std::{path::PathBuf, thread::sleep, time::Duration};
-mod structs;
 use crate::structs::ConfigEnv;
+mod structs;
+mod screen_monitor;
 
 /// https://github.com/francesca64/hotwatch
 ///
 /// https://blog.csdn.net/luchengtao11/article/details/124076575
 ///
-/// Basic required file: [main.exe],[config.ini],[log4rs]
+/// Basic required file: [main.exe],[config.ini],[log4rs],[ffmpeg]
 ///
 #[allow(unused_variables)]
 fn main() {
@@ -53,7 +54,7 @@ fn main() {
         Err(e) => error!("watching failed: {},{:?}", path, e),
     });
 
-    // keyboard_monitor
+
 
     // listening on port 6666
     let thread1 = std::thread::spawn(move || {
@@ -65,6 +66,10 @@ fn main() {
     });
     let thread3 = std::thread::spawn(move || {
         keyboard_monitor();
+    });
+
+    let thread4 = std::thread::spawn(move || {
+        screen_monitor::init();
     });
 
     // replace whitespace

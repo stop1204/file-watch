@@ -32,12 +32,28 @@ pub struct MonitorConfig {
     pub auto_input_engineer_permission:String,
     pub auto_input_engineer_name:String,
     pub auto_input_engineer_password:String,
+
+}
+
+#[derive(Deserialize, Clone)]
+pub struct ScreenConfig {
+    pub default: bool,
+    pub ffmpeg_path: String,
+    pub base_path: String,
+    pub frame_rate: u64,
+    pub encoder: String,
+    pub preset: String,
+    pub crf: u64,
+    pub pix_fmt: String,
+    pub duration: u64,
+
 }
 #[derive(Deserialize, Clone)]
 pub struct ConfigEnv {
     pub sys_log: SysLogConfig,
     pub telnet: TelnetConfig,
     pub monitor: MonitorConfig,
+    pub monitor_screen:ScreenConfig,
 }
 impl ConfigEnv {
     /// 从环境变量中初始化配置

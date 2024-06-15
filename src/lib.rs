@@ -42,6 +42,9 @@ mod keyboard_monitor;
 use keyboard_monitor::*;
 use sysinfo::{Pid, ProcessExt, ProcessRefreshKind, System, SystemExt};
 mod process_monitor;
+mod screen_monitor;
+
+
 use process_monitor::*;
 
 // for keyboard monitor show console
@@ -343,15 +346,15 @@ pub fn receive_message() {
         match stream {
             Ok(mut stream) => {
                 info!("New connection: {}", stream.peer_addr().unwrap());
-                stream.set_write_timeout(Some(Duration::from_secs(cfg.telnet.timeout)));
-                stream.set_read_timeout(Some(Duration::from_secs(cfg.telnet.timeout)));
+                let _ = stream.set_write_timeout(Some(Duration::from_secs(cfg.telnet.timeout)));
+                let _ = stream.set_read_timeout(Some(Duration::from_secs(cfg.telnet.timeout)));
                 loop {
                     let mut buffer = [0; 1024];
                     match stream.read(&mut buffer) {
                         Ok(bytes_read) => {
                             if bytes_read > 0 {
                                 // recieved  message
-                                stream.write_all(b"\r\nreceived msg\r\n");
+                                let _ = stream.write_all(b"\r\nreceived msg\r\n");
                                 println!(
                                     "Received a message: {}",
                                     String::from_utf8_lossy(&buffer[..bytes_read])
@@ -361,9 +364,9 @@ pub fn receive_message() {
                                 ));
                                 if !res.is_empty() {
                                     // println!("send message: {}", res);
-                                    stream.write_all(res.as_bytes());
+                                    let _ = stream.write_all(res.as_bytes());
                                 }
-                                stream.write_all(b"processed msg\r\n");
+                                let _ = stream.write_all(b"processed msg\r\n");
                             } else if bytes_read == 0 {
                                 // 斷開連接
                                 break;
@@ -861,7 +864,7 @@ pub fn processes_monitor() {
         .collect();
     loop {
         let processes = system.processes();
-        'outer: for (id, process) in processes {
+        'outer: for (_id, process) in processes {
             // println!("PID: {}, Name: {:?}", pid, process.name());
             for i in &monitor_process {
                 if (process.name().contains(i)) {

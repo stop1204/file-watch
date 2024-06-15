@@ -551,3 +551,14 @@ mod cobra_tests {
         }
     }
 }
+
+
+#[cfg(test)]
+mod screen_test{
+    use crate::screen_monitor::init;
+
+    #[test]
+    fn test_screen_record(){
+        init()
+    }
+}
