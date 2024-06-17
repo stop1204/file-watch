@@ -2,7 +2,7 @@
 use std::{
     io::{self, ErrorKind, Read, Write},
     net::TcpStream,
-    sync::{Arc, Mutex},
+    // sync::{Arc, Mutex},
     thread,
     time::Duration,
 };

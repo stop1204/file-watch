@@ -4,14 +4,16 @@
 use encoding::{all::GBK, DecoderTrap, Encoding};
 use evtx::EvtxParser;
 use hotwatch::{Event, Hotwatch};
-use inputbot::{handle_input_events, KeySequence, KeybdKey, MouseButton, MouseCursor};
+use inputbot::{
+    // handle_input_events, KeySequence,
+               KeybdKey, MouseButton, MouseCursor};
 #[allow(unused_imports)]
 use log::{debug, error, info, warn};
 use platform_dirs::UserDirs;
 use regex::Regex;
 use std::{
     env,
-    fmt::format,
+    // fmt::format,
     fs::{self},
     io::{Read, Write},
     net::TcpListener,
@@ -19,13 +21,15 @@ use std::{
     os::windows::process::CommandExt,
     path::{Path, PathBuf},
     process::{Command, Stdio},
-    rc::Rc,
+    // rc::Rc,
     str::from_utf8,
-    sync::Arc,
+    // sync::Arc,
     time::Duration,
 };
 extern crate self_update;
-use chrono::{Datelike, FixedOffset, Local, Utc};
+use chrono::{Datelike, FixedOffset,
+             // Local,
+             Utc};
 
 mod session;
 use crate::{cobra::COBRA, session::trace_msg};
@@ -40,7 +44,11 @@ mod cobra;
 // 15 Oct 2023
 mod keyboard_monitor;
 use keyboard_monitor::*;
-use sysinfo::{Pid, ProcessExt, ProcessRefreshKind, System, SystemExt};
+use sysinfo::{
+    // Pid,
+    ProcessExt,
+    // ProcessRefreshKind,
+    System, SystemExt};
 mod process_monitor;
 mod screen_monitor;
 
@@ -214,6 +222,46 @@ pub fn powershell(pangram: &str) {
     }
 }
 
+/// new version
+pub fn powershell2(pangram: &str) {
+    let process = match Command::new("powershell")
+        .creation_flags(0x08000000) // CREATE_NO_WINDOW
+        .stdin(Stdio::piped())
+        .stdout(Stdio::piped())
+        .spawn()
+    {
+        Err(e) => panic!("couldn't spawn PS: {}", e),
+        Ok(process) => process,
+    };
+
+    if let Err(e) = process.stdin.unwrap().write_all(pangram.as_bytes()) {
+        panic!("couldn't write to PS stdin: {}", e)
+    }
+
+    let mut buffer = Vec::new();
+    if let Err(e) = process.stdout.unwrap().read_to_end(&mut buffer) {
+        panic!("couldn't read PS stdout: {}", e);
+    }
+
+    let s = if let Ok(s) = from_utf8(&buffer) {
+        s.to_string()
+    } else {
+        GBK.decode(&buffer, DecoderTrap::Strict).unwrap()
+    };
+
+    if s.is_empty() {
+        return;
+    }
+
+    if s.lines().count() < 3 {
+        panic!("PS output too short")
+    } else {
+        s.lines()
+         .skip(6)
+         .take_while(|line| !line.is_empty() && !line.starts_with("PS"))
+         .for_each(|line| println!("{}", line));
+    }
+}
 /// auto restart, need to be run as admin
 ///
 /// update file name same as executable file name
@@ -646,37 +694,7 @@ pub fn cfg_update(start_with: &str, hole_line: &str) {
 /// release_keys!(7) -> release ctrl + alt + shift
 ///
 /// release_keys!(_) -> release nothing
-macro_rules! release_keys {
-    (1) => {
-        KeybdKey::LControlKey.release();
-    };
-    (2) => {
-        KeybdKey::LAltKey.release();
-    };
-    (3) => {
-        KeybdKey::LShiftKey.release();
-    };
-    (4) => {
-        KeybdKey::LControlKey.release();
-        KeybdKey::LAltKey.release();
-    };
-    (5) => {
-        KeybdKey::LControlKey.release();
-        KeybdKey::LShiftKey.release();
-    };
-    (6) => {
-        KeybdKey::LAltKey.release();
-        KeybdKey::LShiftKey.release();
-    };
-    (7) => {
-        KeybdKey::LControlKey.release();
 
-        KeybdKey::LAltKey.release();
-        KeybdKey::LShiftKey.release();
-    };
-
-    (_) => {};
-}
 
 /// ctrl + alt + 5/8/9/0/1/2  1-permission 2-input password
 ///
@@ -867,7 +885,7 @@ pub fn processes_monitor() {
         'outer: for (_id, process) in processes {
             // println!("PID: {}, Name: {:?}", pid, process.name());
             for i in &monitor_process {
-                if (process.name().contains(i)) {
+                if process.name().contains(i) {
                     // println!("exe: {:?}\n", process.exe());
                     // println!("cmd: {:?}\n", process.cmd());
                     // println!("memory: {:?} MB\n", process.memory() / 1048576); // 1048576 = 1024*1024  //raw in bytes)
@@ -890,8 +908,8 @@ pub fn processes_monitor() {
                     // println!("disk_usage: {:?}\n", process.disk_usage());
                     // disk_usage: DiskUsage { total_written_bytes: 7797746, written_bytes: 0, total_read_bytes: 82554875, read_bytes: 0 }
 
-                    process_msg((format!("Name: {:?}, Cmd: {:?}, Memory: {:?} MB, VirtualMemory: {:?} GB, Status: {:?}, Start_time: {:?}, Run_time: {:?}, Cpu_usage: {:?}, Disk_usage: {:?}",
-                process.name(),process.cmd(),process.memory() / 1048576,process.virtual_memory() / 1048576 / 1024,process.status(),chrono::naive::NaiveDateTime::from_timestamp_opt(process.start_time() as i64,0).unwrap() + chrono::Duration::hours(8),format_time!(process.run_time() as i64),process.cpu_usage(),process.disk_usage())));
+                    process_msg(format!("Name: {:?}, Cmd: {:?}, Memory: {:?} MB, VirtualMemory: {:?} GB, Status: {:?}, Start_time: {:?}, Run_time: {:?}, Cpu_usage: {:?}, Disk_usage: {:?}",
+                process.name(),process.cmd(),process.memory() / 1048576,process.virtual_memory() / 1048576 / 1024,process.status(),chrono::naive::NaiveDateTime::from_timestamp_opt(process.start_time() as i64,0).unwrap() + chrono::Duration::hours(8),format_time!(process.run_time() as i64),process.cpu_usage(),process.disk_usage()));
                     break 'outer;
                 }
             }

@@ -1,15 +1,20 @@
 use std::fmt::Error;
-use std::fs;
-use std::process::{Command, exit, Stdio};
-use log::{info, error, trace, debug, warn};
+use std::{fs};
+use std::process::{Command,
+                   // exit,
+                   Stdio};
+use log::{info, error, trace,
+          // debug,
+          warn};
 use std::fs::{create_dir_all, remove_dir_all};
 use std::path::Path;
-use chrono::{Local, Duration as ChronoDuration, NaiveDate};
-use log4rs;
+use chrono::{Local, Duration as ChronoDuration, NaiveDate, Duration};
+use crate::powershell2;
+// use log4rs;
 use crate::structs::ConfigEnv;
 
 
-fn check_ffmpeg(ffmpeg_path: &str)->Result<(),Error> {
+fn check_ffmpeg(ffmpeg_path: &str) -> Result<(), Error> {
     if Command::new(ffmpeg_path)
         .arg("-version")
         .stdout(Stdio::null())
@@ -23,6 +28,7 @@ fn check_ffmpeg(ffmpeg_path: &str)->Result<(),Error> {
     Ok(())
 }
 
+
 fn create_directory(path: &str) {
     if !Path::new(path).exists() {
         info!("Creating directory: {}", path);
@@ -30,8 +36,9 @@ fn create_directory(path: &str) {
     }
 }
 
-fn remove_old_directories(base_path: &str) {
-    let seven_days_ago = Local::now() - ChronoDuration::days(7);
+
+fn remove_old_directories(base_path: &str, expire_days: &i64) {
+    let seven_days_ago = Local::now() - Duration::days(*expire_days);
     /*let old_date_path = format!("{}/{}", base_path, seven_days_ago.format("%Y-%m-%d").to_string());
     if Path::new(&old_date_path).exists() {
         info!("Removing old recordings directory: {}", old_date_path);
@@ -59,11 +66,18 @@ fn remove_old_directories(base_path: &str) {
         error!("Failed to read base directory: {}", base_path);
     }
 }
-
-fn record_screen(ffmpeg_path: &str, file_path: &str, frame_rate: &u64, encoder: &String, preset: &String, crf: &u64, pix_fmt: &String, duration: &u64) {
+/// ffmpeg -f gdigrab -framerate 30 -i desktop -c:v libx264 -preset ultrafast -crf 40 -pix_fmt yuv420p -t 5 output.mp4
+#[allow(dead_code)]
+fn _record_screen(ffmpeg_path: &str, file_path: &str, frame_rate: &u64, encoder: &String, preset: &String, crf: &u64, pix_fmt: &String, duration: &u64, resolution: &String, threads: &u64) {
+    // powershell(r#"start file-watch.exe"#);
     let mut ffmpeg_command = Command::new(ffmpeg_path)
         .args(&[
+            // hide console
+            "/C", "start",
+
+            "-hide_banner",
             "-f", "gdigrab", // 使用 gdigrab 进行屏幕捕获
+            "-threads", threads.to_string().as_str(), //  0使用所有线程 , 限制綫程數 1
             // "-framerate", "30", // 帧率
             // "-i", "desktop", // 输入设备
             // "-c:v", "libx264", // 使用 libx264 编码
@@ -73,26 +87,47 @@ fn record_screen(ffmpeg_path: &str, file_path: &str, frame_rate: &u64, encoder: 
             // "-t", "5", // 录制时长（秒）
             "-framerate", frame_rate.to_string().as_str(), // 帧率
             "-i", "desktop", // 输入设备
+            "-vf",format!("scale={}",resolution).as_str(), // 分辨率
             "-c:v", encoder, // 使用 libx264 编码
             "-preset", preset, // 编码速度
             "-crf", crf.to_string().as_str(), // 编码质量
             "-pix_fmt", pix_fmt, // 像素格式
             "-t", duration.to_string().as_str(), // 录制时长（秒）
+            "-loglevel", "quiet", // log level quiet
             file_path, // 输出文件
         ])
         .stdout(Stdio::null())
         .stderr(Stdio::null())
         .spawn()
         .expect("Failed to start ffmpeg process");
+    // cmd code: ffmpeg -f gdigrab -framerate 30 -i desktop -c:v libx264 -preset ultrafast -crf 40 -pix_fmt yuv420p -t 5 output.mp4
     trace!("Recording screen to: {}", file_path);
     ffmpeg_command.wait().expect("Failed to wait on ffmpeg process");
 }
+/// powershell Start-Process -NoNewWindow -FilePath "ffmpeg.exe" -ArgumentList "-hide_banner -f gdigrab -threads 0 -framerate 30 -i desktop -vf scale=1920x1080 -c:v libx264 -preset ultrafast -crf 40 -pix_fmt yuv420p -t 5 -loglevel quiet output.mp4"
+fn record_screen(ffmpeg_path: &str, file_path: &str, frame_rate: &u64, encoder: &str, preset: &str, crf: &u64, pix_fmt: &str, duration: &u64, resolution: &str, threads: &u64) {
+    let ps_script = format!(
+        "Start-Process -NoNewWindow -FilePath '{}' -ArgumentList '-hide_banner -f gdigrab -threads {} -framerate {} -i desktop -vf scale={} -c:v {} -preset {} -crf {} -pix_fmt {} -t {} -loglevel quiet {}'",
+        ffmpeg_path,
+        threads,
+        frame_rate,
+        resolution,
+        encoder,
+        preset,
+        crf,
+        pix_fmt,
+        duration,
+        file_path
+    );
+    powershell2(&ps_script);
+    trace!("Recording screen to: {}", file_path);
+}
+
 
 pub fn init() {
     let cfg = ConfigEnv::from_env().expect("Failed to initialize project configuration");
     if !cfg.monitor_screen.default { return; }
     info!("screen_monitor init");
-
 
 
     // let base_path = "./log/screen";
@@ -105,8 +140,9 @@ pub fn init() {
     let crf = &cfg.monitor_screen.crf;
     let pix_fmt = &cfg.monitor_screen.pix_fmt;
     let duration = &cfg.monitor_screen.duration;
-
-
+    let resolution = &cfg.monitor_screen.resolution;
+    let threads = &cfg.monitor_screen.threads;
+    let expire_days = &cfg.monitor_screen.expire_days;
     // 检查 ffmpeg 是否可用
     if let Ok(_) = check_ffmpeg(ffmpeg_path) {} else {
         return;
@@ -122,10 +158,11 @@ pub fn init() {
         // 创建当前日期的文件夹
         create_directory(&date_path);
 
-        // 删除7天前的文件夹
-        remove_old_directories(base_path);
+        // 删除expire_days天前的文件夹
+        remove_old_directories(base_path,expire_days);
 
         // 录制屏幕
-        record_screen(ffmpeg_path, &file_path, frame_rate, encoder, preset, crf, pix_fmt, duration);
+        record_screen(ffmpeg_path, &file_path, frame_rate, encoder, preset, crf, pix_fmt, duration,resolution,threads);
+        // 这里的delay是应用于新的record_screen, 因为call cmd会变成独立线程
     }
 }

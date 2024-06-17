@@ -6,14 +6,20 @@ ctrl + 9 : hide console
 */
 use regex::{Captures, Regex};
 use std::ffi::OsString;
-use std::fmt::Error;
-use std::fs::{self, File};
-use std::io::{BufRead, BufReader};
+// use std::fmt::Error;
+use std::fs::{self,
+              // File
+};
+use std::io::{BufRead,
+              // BufReader
+};
 use std::os::windows::ffi::OsStringExt;
 use winapi::shared::windef::HWND;
 use winapi::um::winuser::{GetForegroundWindow, GetWindowTextW, SendMessageW};
 
-use crate::{sleep, sleep_ms};
+use crate::{
+    // sleep,
+    sleep_ms};
 
 static mut AUTO_INPUT_STRING: String = String::new();
 static mut AUTO_INPUT_LINE: Option<Captures> = None;
@@ -23,13 +29,13 @@ pub static mut AUTO_INPUT_ENGINEER_NAME: String = String::new();
 pub static mut AUTO_INPUT_ENGINEER_PASSWORD: String = String::new();
 
 pub fn key_msg(s: String) {
-    // chinese charactor
+    // chinese character
     // if !s.contains("invalid utf-8 sequence") {
     log::info!("{}", s);
     // }
 }
 pub fn key_msg_debug(s: &str) {
-    // chinese charactor
+    // chinese character
     // if !s.contains("invalid utf-8 sequence") {
     log::debug!("{}", s);
     // }
@@ -67,7 +73,7 @@ pub fn get_foreground_window_title() -> Option<String> {
 
     None
 }
-macro_rules! release_keys {
+#[macro_export] macro_rules! release_keys {
     (1) => {
         KeybdKey::LControlKey.release();
     };

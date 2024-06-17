@@ -46,6 +46,9 @@ pub struct ScreenConfig {
     pub crf: u64,
     pub pix_fmt: String,
     pub duration: u64,
+    pub resolution:String,
+    pub threads:u64,
+    pub expire_days:i64,
 
 }
 #[derive(Deserialize, Clone)]
