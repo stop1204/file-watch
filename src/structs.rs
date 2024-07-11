@@ -49,6 +49,7 @@ pub struct ScreenConfig {
     pub resolution:String,
     pub threads:u64,
     pub expire_days:i64,
+    pub format:String,
 
 }
 #[derive(Deserialize, Clone)]

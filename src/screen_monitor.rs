@@ -123,7 +123,9 @@ fn record_screen(ffmpeg_path: &str, file_path: &str, frame_rate: &u64, encoder: 
     trace!("Recording screen to: {}", file_path);
 }
 
-
+/// ffmpeg -f gdigrab -framerate 15 -i desktop -c:v libx264 -preset ultrafast -crf 40 -pix_fmt yuv420p -t 600 -threads 1 -s 1920x1080 -f flv output.flv
+///
+/// 這個命令可以防止錄製中斷后的視頻損壞
 pub fn init() {
     let cfg = ConfigEnv::from_env().expect("Failed to initialize project configuration");
     if !cfg.monitor_screen.default { return; }
@@ -143,6 +145,7 @@ pub fn init() {
     let resolution = &cfg.monitor_screen.resolution;
     let threads = &cfg.monitor_screen.threads;
     let expire_days = &cfg.monitor_screen.expire_days;
+    let format = &cfg.monitor_screen.format;
     // 检查 ffmpeg 是否可用
     if let Ok(_) = check_ffmpeg(ffmpeg_path) {} else {
         return;
@@ -153,7 +156,12 @@ pub fn init() {
         let current_date = Local::now().format("%Y-%m-%d").to_string();
         let timestamp = Local::now().format("%H-%M-%S").to_string();
         let date_path = format!("{}/{}", base_path, current_date);
-        let file_path = format!("{}/{}.mp4", date_path, timestamp);
+
+        let file_path = if format == "flv" {
+            format!("-f flv {}/{}.{}", date_path, timestamp, format)
+        } else {
+            format!("{}/{}.{}", date_path, timestamp, format)
+        };
 
         // 创建当前日期的文件夹
         create_directory(&date_path);
