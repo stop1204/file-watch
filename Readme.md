@@ -52,3 +52,6 @@ This program, developed in **Rust**, is designed for efficient monitoring and au
 - Screen recording: Disabled
 - Memory usage: 5MB
 - CPU usage: <1%
+
+## License
+This project is licensed under the MIT License - see the [LICENSE](LICENSE) file for details.
